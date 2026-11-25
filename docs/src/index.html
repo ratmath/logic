@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RatMath Logic</title>
+<meta name="description" content="Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script type="module" src="assets/site.js"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">@ratmath/logic</div>
+<h1>Logic where every verdict comes with its evidence</h1>
+<p class="lede">Formal logic you can compute with. A formula is valid with a proof, invalid with a countermodel, or reported as unresolved; proofs written by hand are checked line by line, with hints when a step is missing.</p>
+<p class="notice"><strong>Planned, not built yet.</strong> This site is the frame the package will grow into. The full plan is in the <a href="https://github.com/ratmath/ratmath/blob/main/docs/design/library-roadmap.md#8-a-logic-package-ratmathlogic">library roadmap</a>, and the <a href="https://ratmath.com/shelf/">RatMath Shelf</a> page lists what exists across all the libraries.</p>
+
+<h2>What it will cover</h2>
+<ul>
+  <li>Propositional formulas: truth tables, normal forms, satisfiability, simplification.</li>
+  <li>Proof checkers for the common rule sets (natural deduction, sequents, axioms), with proof search and hints.</li>
+  <li>Predicate logic: syntax, finite models, search for countermodels, the quantifier rules.</li>
+  <li>Circuits, Karnaugh maps and syllogisms.</li>
+  <li>Modal logic with Kripke models.</li>
+  <li>Ordinals, cardinals, Peano arithmetic and Gödel numbering.</li>
+  <li>Automata, grammars and Turing machines.</li>
+</ul>
+
+<h2>The order of work</h2>
+<p>The phases below come from the roadmap. Sizes are rough estimates in lines of source.</p>
+<div class="tablewrap"><table class="plan">
+<tr><th>Phase</th><th>Contents</th><th>Estimate</th></tr>
+<tr><td>1</td><td>Propositional formulas, tables, normal forms, satisfiability, simplification</td><td>900</td></tr>
+<tr><td>2</td><td>Proof checkers, rule sets, proof search and hints</td><td>1,200</td></tr>
+<tr><td>3</td><td>Predicate logic: syntax, finite models, model search, quantifier rules</td><td>1,100</td></tr>
+<tr><td>4</td><td>Circuits, Karnaugh maps, syllogisms</td><td>400</td></tr>
+<tr><td>5</td><td>Modal logic</td><td>500</td></tr>
+<tr><td>6</td><td>Ordinals, cardinals, Peano arithmetic, Gödel numbering</td><td>500</td></tr>
+<tr><td>7</td><td>Automata, grammars, Turing machines</td><td>1,000</td></tr>
+<tr><td>8</td><td>Pictures</td><td>500 in graphics</td></tr>
+</table></div>
+<p>It will build on: Core only. The discrete package will use it for Boolean functions.</p>
+
+<h2>How the docs will be laid out</h2>
+<p>Like every library on the Shelf: this overview, an <a href="explore.html">Explore</a> page for trying things without writing code, a <a href="reference.html">Reference</a> listing every function, and one page per topic that explains the usage and the mathematics. Every page ends with a box of code you can edit and run.</p>
+<div class="cards" id="cards"></div>
+
+<h2>Until then</h2>
+<p>The box below already runs, with <code>@ratmath/core</code> in scope. It shows the kind of exactness the package is built on, done by hand.</p>
+<template data-runbox>
+// A truth table by brute force: is hypothetical syllogism a tautology?
+const implies = (a, b) =&gt; !a || b;
+const formula = (p, q, r) =&gt; implies(implies(p, q) &amp;&amp; implies(q, r), implies(p, r));
+let always = true;
+for (const p of [true, false]) for (const q of [true, false]) for (const r of [true, false]) {
+  const v = formula(p, q, r);
+  always &amp;&amp;= v;
+  PRINT([p, q, r].map((x) =&gt; (x ? "T" : "F")).join(" "), " → ", v ? "T" : "F");
+}
+PRINT("((p → q) ∧ (q → r)) → (p → r) is", always ? "valid" : "not valid");
+// and one that is not: affirming the consequent, with its countermodel
+const bad = (p, q) =&gt; implies(implies(p, q) &amp;&amp; q, p);
+PRINT("countermodel to ((p → q) ∧ q) → p:", JSON.stringify([[true, true], [true, false], [false, true], [false, false]].find(([p, q]) =&gt; !bad(p, q))));
+plan.map((p) =&gt; `${p.phase}. ${p.contents}`)
+</template>
+</article>
+</main>
+</div>
+<script type="module">
+import { topicCards } from "./assets/site.js";
+topicCards(document.getElementById("cards"));
+</script>
+</body>
+</html>
