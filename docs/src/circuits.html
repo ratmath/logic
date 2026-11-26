@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Circuits and Karnaugh maps · RatMath Logic</title>
+<meta name="description" content="Logic circuits in @ratmath/logic: gates and wiring, evaluation and truth tables, NAND-only and NOR-only circuits, equivalence with a distinguishing input, adders, and Karnaugh maps with their groups.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script type="module" src="assets/site.js"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Circuits and Karnaugh maps</h1>
+<p class="lede">A circuit is a formula with its parts shared: gates wired together, with no loops. Two numbers describe its cost, the number of gates (size) and the longest path from an input to an output (depth, roughly the time a signal takes).</p>
+
+<h2>Building and running a circuit</h2>
+<p>Gates are named, and each lists its kind and what it reads. The kinds are <code>and</code>, <code>or</code>, <code>xor</code>, <code>nand</code>, <code>nor</code>, <code>xnor</code> (two inputs or more), <code>not</code> and <code>buf</code>. A wiring that loops is refused.</p>
+<pre><code>import { circuit } from "@ratmath/logic";
+
+const half = circuit({ inputs: ["a", "b"],
+  gates: { s: ["xor", "a", "b"], c: ["and", "a", "b"] }, outputs: ["s", "c"] });
+half.evaluate([1, 1]);           // { s: 0, c: 1 }
+half.size, half.depth;           // 2, 1
+String(half.formula("s"));       // "a ⊕ b"
+half.truthTable()[3];            // { inputs: [1, 1], outputs: { s: 0, c: 1 } }</code></pre>
+
+<h2>Adders</h2>
+<p>A full adder adds three bits: \(sum = a \oplus b \oplus c_{in}\) and \(c_{out} = (a \land b) \lor ((a \oplus b) \land c_{in})\). Chaining \(n\) of them, each carry feeding the next, gives a ripple-carry adder for \(n\)-bit numbers. Its depth grows with \(n\), because the last carry waits for all the others; faster adders look ahead at the carries.</p>
+<pre><code>import { adders } from "@ratmath/logic";
+
+const fa = adders.full();
+fa.size, fa.depth, fa.counts;    // 5, 3, { xor: 2, and: 2, or: 1 }
+
+const r4 = adders.ripple(4);     // inputs a3 a2 a1 a0 b3 b2 b1 b0, outputs c3 s3 s2 s1 s0
+r4.evaluate([0,1,1,1, 0,1,0,1]); // { c3: 0, s3: 1, s2: 1, s1: 0, s0: 0 }: 7 + 5 = 12
+r4.size, r4.depth;               // 17, 7</code></pre>
+<p>The tests check the 4-bit adder on all 256 pairs of inputs against ordinary addition.</p>
+
+<h2>One kind of gate is enough</h2>
+<p>NAND alone can build everything: \(\lnot a = a \uparrow a\), \(a \land b = \lnot(a \uparrow b)\), and \(a \lor b = \lnot a \uparrow \lnot b\). NOR is the same with the roles of and and or swapped. <code>circuitFrom</code> builds a circuit for a formula in standard gates, or in one of these, sharing equal parts and cancelling double negations.</p>
+<pre><code>import { circuitFrom, circuitsEquivalent } from "@ratmath/logic";
+
+const n = circuitFrom("(a &amp; b) | ~c", { gates: "nand" });
+n.counts;                        // { nand: 2 }: (a ↑ b) ↑ c
+circuitsEquivalent(n, "(a &amp; b) | ~c");   // { status: "equivalent" }
+circuitsEquivalent(n, "(a &amp; b) | c");
+// { status: "different", output: "out", inputs: { a: 1, b: 0, c: 0 }, values: [1, 0] }</code></pre>
+<p>Equivalence is decided by the <a href="satisfiability.html">solver</a>, and a difference comes with an input where the two disagree, checked by running both.</p>
+
+<h2>Karnaugh maps</h2>
+<p>A Karnaugh map lays out a truth table of up to four atoms as a grid whose rows and columns are in <em>Gray code</em> order (00, 01, 11, 10), so neighbouring cells, including across the edges, differ in one atom. A block of 1, 2, 4 or 8 true cells in a rectangle is then a single product term: the atoms that stay the same across the block. Covering every 1 with as few, as large, blocks as possible gives a shortest sum of products.</p>
+<pre><code>import { karnaugh } from "@ratmath/logic";
+
+const k = karnaugh("(a &amp; b) | (~a &amp; c) | (b &amp; c) | (d &amp; ~b &amp; a)");
+k.toString();
+// ab\cd   00  01  11  10
+// 00       0   0   1   1
+// 01       0   0   1   1
+// 11       1   1   1   1
+// 10       0   1   1   0
+k.groups.map((g) =&gt; String(g.formula));   // ["a ∧ b", "a ∧ d", "¬a ∧ c"], each a block of 4
+String(k.formula);                         // "(a ∧ b) ∨ (a ∧ d) ∨ (¬a ∧ c)"
+
+String(karnaugh({ minterms: [0, 2, 8, 10], atoms: ["a", "b", "c", "d"] }).formula);
+// "¬b ∧ ¬d": the four corners are one block, because the edges wrap</code></pre>
+<p>Cells marked <code>x</code> are rows that do not matter (a <code>dontCares</code> list); a block may use them or not. The blocks are chosen by the same Quine–McCluskey method as <a href="simplification.html">Simplification</a>, so the map and the minimiser always agree.</p>
+<pre><code>karnaugh({ minterms: [1, 3, 7], dontCares: [5], atoms: ["a", "b", "c"] }).formula;   // c</code></pre>
+
+<h2>Reference</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>circuit({ inputs, gates, outputs })</code></td><td>A <code>Circuit</code>: <code>evaluate(values)</code>, <code>truthTable()</code>, <code>formula(output)</code>, <code>size</code>, <code>depth</code>, <code>counts</code>.</td></tr>
+<tr><td><code>circuitFrom(f, { gates, output })</code></td><td><code>gates</code>: <code>"standard"</code>, <code>"nand"</code> or <code>"nor"</code>.</td></tr>
+<tr><td><code>circuitsEquivalent(a, b)</code></td><td>Circuits or formulas, outputs matched by position. <code>"equivalent"</code>, or <code>"different"</code> with the <code>inputs</code> that show it.</td></tr>
+<tr><td><code>adders.half(), adders.full(), adders.ripple(n)</code></td><td>Adders built from gates.</td></tr>
+<tr><td><code>karnaugh(f | { minterms, atoms, dontCares })</code></td><td>Two to four atoms. <code>cells</code>, <code>rowLabels</code>, <code>colLabels</code>, <code>groups</code> (each with <code>formula</code>, <code>cells</code>, <code>size</code>, <code>essential</code>), <code>formula</code>, <code>toString()</code>.</td></tr>
+</table></div>
+<template data-runbox>
+// A majority vote of three: true when at least two inputs are.
+const maj = "(a &amp; b) | (a &amp; c) | (b &amp; c)";
+const k = karnaugh(maj);
+PRINT(k.toString());
+PRINT("groups:", k.groups.map((g) =&gt; String(g.formula)).join(", "));
+
+// In NAND gates only, then checked against the formula
+const n = circuitFrom(maj, { gates: "nand" });
+PRINT("NAND gates:", n.counts.nand, " depth:", n.depth);
+PRINT(circuitsEquivalent(n, maj).status);
+
+// A two-bit ripple adder: 3 + 2
+adders.ripple(2).evaluate([1, 1, 1, 0])
+</template>
+</article>
+</main>
+</div>
+</body>
+</html>

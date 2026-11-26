@@ -13,8 +13,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="https://ratmath.com/assets/katex/0.19.1/katex.min.css">
-<link rel="stylesheet" href="assets/style.css?v=c351dc7788">
-<script type="module" src="assets/site.js?v=c351dc7788"></script>
+<link rel="stylesheet" href="assets/style.css?v=c0912fd321">
+<script type="module" src="assets/site.js?v=c0912fd321"></script>
 </head>
 <body>
 <div class="shell">
@@ -26,7 +26,7 @@
 <p class="lede">Formal logic you can compute with. A formula is valid with a proof you can replay, invalid with a countermodel that has been checked, or reported as unresolved within a stated budget. Proofs written by hand are checked line by line, and a hint gives the next line and no more.</p>
 
 <h2>What is here</h2>
-<p>Propositional logic, in two parts: what a formula <em>means</em> (tables, normal forms, satisfiability, shortest forms) and how a formula is <em>proved</em> (four proof systems, each with a checker). Predicate logic, modal logic and computability are planned and listed at the bottom of this page.</p>
+<p>Propositional logic, in two parts: what a formula <em>means</em> (tables, normal forms, satisfiability, shortest forms) and how a formula is <em>proved</em> (four proof systems, each with a checker). Then predicate logic with finite models and quantifier proofs; circuits, syllogisms and modal logic; and the machines of computability, from finite automata to Turing machines. What is still planned is listed at the bottom of this page.</p>
 <div class="cards" id="cards"></div>
 
 <h2>A first program</h2>
@@ -56,11 +56,11 @@ String(prove("p -&gt; q", "~q -&gt; ~p").proof);           // a seven-line proof
 <tr><th>Phase</th><th>Contents</th><th>Estimate</th></tr>
 <tr><td>1</td><td>Propositional formulas, tables, normal forms, satisfiability, simplification</td><td>built</td></tr>
 <tr><td>2</td><td>Proof checkers, rule sets, proof search and hints</td><td>built</td></tr>
-<tr><td>3</td><td>Predicate logic: syntax, finite models, model search, quantifier rules</td><td>1,100</td></tr>
-<tr><td>4</td><td>Circuits, Karnaugh maps, syllogisms</td><td>400</td></tr>
-<tr><td>5</td><td>Modal logic</td><td>500</td></tr>
+<tr><td>3</td><td>Predicate logic: syntax, finite models, model search, quantifier rules</td><td>built</td></tr>
+<tr><td>4</td><td>Circuits, Karnaugh maps, syllogisms</td><td>built</td></tr>
+<tr><td>5</td><td>Modal logic</td><td>built</td></tr>
 <tr><td>6</td><td>Ordinals, cardinals, Peano arithmetic, Gödel numbering</td><td>500</td></tr>
-<tr><td>7</td><td>Automata, grammars, Turing machines</td><td>1,000</td></tr>
+<tr><td>7</td><td>Automata, grammars, Turing machines</td><td>built</td></tr>
 <tr><td>8</td><td>Pictures</td><td>500 in graphics</td></tr>
 </table></div>
 <p>What is built depends on no other library. The discrete library will use it for Boolean functions.</p>
@@ -86,7 +86,7 @@ entails(premises, "r -&gt; p").countermodel</textarea>
 </main>
 </div>
 <script type="module">
-import { topicCards } from "./assets/site.js?v=c351dc7788";
+import { topicCards } from "./assets/site.js?v=c0912fd321";
 topicCards(document.getElementById("cards"));
 </script>
 </body>

@@ -144,11 +144,11 @@ const special = (text) => {
  * and [first, last] pairs for subproofs.
  */
 export class Proof {
-  constructor(lines) {
+  constructor(lines, read = formula) {
     this.lines = lines.map((l, i) => ({
       n: l.n ?? i + 1,
       depth: l.depth ?? 0,
-      formula: formula(l.formula),
+      formula: typeof l.formula === "string" ? read(l.formula) : l.formula?.key !== undefined ? l.formula : formula(l.formula),
       rule: l.rule ?? "",
       cites: (l.cites ?? []).map((c) => (Array.isArray(c) ? [c[0], c[1]] : c)),
     }));
@@ -189,6 +189,7 @@ const asciiRule = (r) => r.replace("∧", "&").replace("∨", "|").replace("→"
  * Rule names are read loosely: ->E, →E, MP and "modus ponens" are one rule.
  */
 export function parseProof(text, { rules: set = rules.derived } = {}) {
+  const read = set.read ?? parse;
   const lines = [];
   let numbered = null;
   const raws = String(text).split("\n");
@@ -217,7 +218,7 @@ export function parseProof(text, { rules: set = rules.derived } = {}) {
       const reason = readReason(s.slice(i), set);
       if (!reason) continue;
       try {
-        found = { formula: parse(head), ...reason };
+        found = { formula: read(head), ...reason };
         break;
       } catch (e) {
         if (!(e instanceof LogicError)) throw e;
@@ -225,7 +226,7 @@ export function parseProof(text, { rules: set = rules.derived } = {}) {
     }
     if (!found) {
       try {
-        formulaOnly = parse(s);
+        formulaOnly = read(s);
       } catch (e) {
         if (!(e instanceof LogicError)) throw e;
       }
@@ -236,7 +237,7 @@ export function parseProof(text, { rules: set = rules.derived } = {}) {
         if (!cut) refuse("syntax", `${where}: cannot find a formula followed by a reason`);
         let head;
         try {
-          head = parse(s.slice(0, cut.index));
+          head = read(s.slice(0, cut.index));
         } catch (e) {
           refuse("syntax", `${where}: ${e.message}`);
         }
@@ -250,7 +251,7 @@ export function parseProof(text, { rules: set = rules.derived } = {}) {
     if (seen.has(l.n)) refuse("syntax", `two lines of the proof are numbered ${l.n}`);
     seen.add(l.n);
   }
-  return new Proof(lines);
+  return new Proof(lines, read);
 }
 function readReason(text, set, loose = false) {
   const cites = [];
@@ -285,7 +286,7 @@ const describeNeeds = (form) => {
 const permutations = (xs) => (xs.length <= 1 ? [xs] : xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p])));
 
 /** Try one rule on one line. Returns null when it applies, or the text of what was missing. */
-function applyRule(r, target, lineCites, subCites) {
+export function applyRule(r, target, lineCites, subCites) {
   const forms = compile(r).filter((f) => f.lines.length === lineCites.length && f.subs.length === subCites.length);
   if (!forms.length) {
     const wants = [...new Set(compile(r).map(describeNeeds))].join(", or ");
@@ -347,9 +348,9 @@ function applyRule(r, target, lineCites, subCites) {
  * find. `proves` is what a correct proof establishes, as "premises ⊢ last line".
  */
 export function checkProof(input, { rules: set = rules.classical, premises, conclusion } = {}) {
-  const proof = input instanceof Proof ? input : typeof input === "string" ? parseProof(input, { rules: set }) : new Proof(input.lines ?? input);
-  const given = premises === undefined ? null : formulas(premises);
-  const goal = conclusion === undefined ? null : formula(conclusion);
+  const proof = input instanceof Proof ? input : typeof input === "string" ? parseProof(input, { rules: set }) : new Proof(input.lines ?? input, set.read ?? formula);
+  const given = premises === undefined ? null : (set.readList ?? formulas)(premises);
+  const goal = conclusion === undefined ? null : (set.read ?? formula)(conclusion);
   const errors = [];
   const lines = proof.lines;
   const index = new Map(lines.map((l, i) => [l.n, i]));
@@ -437,7 +438,12 @@ export function checkProof(input, { rules: set = rules.classical, premises, conc
         lineCites.push({ n: c, formula: lines[j].formula });
       }
     }
-    const missing = applyRule(r, l.formula, lineCites, subCites);
+    const missing = r.check
+      ? r.check(l.formula, lineCites, subCites, {
+          open: path[i].map((id) => lines[index.get(subs[id].first)].formula),
+          premises: lines.filter((m) => m.depth === 0 && special(m.rule) === "premise").map((m) => m.formula),
+        })
+      : applyRule(r, l.formula, lineCites, subCites);
     if (missing) bad(i, r.name, missing);
   });
 

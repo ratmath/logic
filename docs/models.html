@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Finite models · RatMath Logic</title>
+<meta property="og:title" content="Finite models · RatMath Logic">
+<meta property="og:description" content="Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ratmath.com/logic/models.html">
+<meta name="description" content="Finite structures for first-order logic in @ratmath/logic: evaluation with witnesses and counterexamples, and model search through the SAT solver, with every model found checked.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://ratmath.com/assets/katex/0.19.1/katex.min.css">
+<link rel="stylesheet" href="assets/style.css?v=c0912fd321">
+<script type="module" src="assets/site.js?v=c0912fd321"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Finite models</h1>
+<p class="lede">A sentence is true or false <em>in a structure</em>: a set of things (the domain) with a meaning for each predicate, function and constant. On a finite domain, truth can simply be computed, and a search over small domains finds models and countermodels.</p>
+
+<h2>Structures and truth</h2>
+<p><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">∀</mi><mi>x</mi><mtext> </mtext><mi>A</mi></mrow><annotation encoding="application/x-tex">\forall x\, A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord">∀</span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">A</span></span></span></span> is true when <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi></mrow><annotation encoding="application/x-tex">A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span></span></span></span> holds for every element put in for <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi></mrow><annotation encoding="application/x-tex">x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span></span></span></span>, and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">∃</mi><mi>x</mi><mtext> </mtext><mi>A</mi></mrow><annotation encoding="application/x-tex">\exists x\, A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord">∃</span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">A</span></span></span></span> when it holds for at least one. On a finite domain that is a loop, and the loop knows <em>why</em>: which element is the witness to an <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">∃</mi></mrow><annotation encoding="application/x-tex">\exists</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord">∃</span></span></span></span>, and which is the counterexample to a <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">∀</mi></mrow><annotation encoding="application/x-tex">\forall</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord">∀</span></span></span></span>.</p>
+<pre><code>import { structure, evaluate } from "@ratmath/logic";
+
+// three people, each loving the next round a circle
+const M = structure({ domain: [1, 2, 3], predicates: { L: [[1, 2], [2, 3], [3, 1]] } });
+
+evaluate("∀x ∃y L(x, y)", M);
+// { value: true, reason: "holds for every x in the domain" }
+evaluate("∃x ∀y L(x, y)", M).value;      // false: nobody loves everyone
+evaluate("∀x ∃y L(x, y)", M, { explain: true }).steps.slice(0, 2);
+// ["∀x ∃y L(x, y): true (holds for every x in the domain)",
+//  "  ∃y L(x, y) with x = 1: true (holds for y = 2)"]</code></pre>
+<p>Predicates are given as lists of the elements or tuples where they hold, or as functions. Functions may be tables or JavaScript functions; constants name elements.</p>
+<pre><code>const N = structure({ domain: 4, constants: { zero: 0 },
+  functions: { s: (x) =&gt; (x + 1) % 4 }, predicates: { Even: [0, 2] } });
+evaluate("∀x (Even(x) ↔ ¬Even(s(x)))", N).value;   // true
+evaluate("Even(s(s(zero)))", N).value;             // true</code></pre>
+
+<h2>Searching for a model</h2>
+<p>On a domain of <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi></mrow><annotation encoding="application/x-tex">n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">n</span></span></span></span> elements, a sentence becomes a propositional formula: <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">∀</mi><mi>x</mi></mrow><annotation encoding="application/x-tex">\forall x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord">∀</span><span class="mord mathnormal">x</span></span></span></span> turns into a conjunction over the <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi></mrow><annotation encoding="application/x-tex">n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">n</span></span></span></span> elements and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">∃</mi><mi>x</mi></mrow><annotation encoding="application/x-tex">\exists x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord">∃</span><span class="mord mathnormal">x</span></span></span></span> into a disjunction, and each atom such as <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mo stretchy="false">(</mo><mn>0</mn><mo separator="true">,</mo><mn>2</mn><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">L(0, 2)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">L</span><span class="mopen">(</span><span class="mord">0</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord">2</span><span class="mclose">)</span></span></span></span> or <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false">(</mo><mn>1</mn><mo stretchy="false">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">f(1) = 0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mopen">(</span><span class="mord">1</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6444em;"></span><span class="mord">0</span></span></span></span> into a letter. Function symbols get one letter for each possible value, with clauses saying that exactly one value is taken. The <a href="satisfiability.html">SAT solver</a> then looks for an assignment, and <code>findModel</code> reads the structure back and <em>checks it by evaluation</em> before returning it.</p>
+<pre><code>import { findModel, countermodel } from "@ratmath/logic";
+
+const r = findModel("∀x f(f(x)) = x, ∃x f(x) ≠ x");   // a non-trivial involution
+r.status, r.size;                  // "found", 2
+r.model.describe().functions;      // { f: { "0": 1, "1": 0 } }
+
+findModel("∀x ∀y x = y, ∃x ∃y x ≠ y");   // { status: "none", upTo: 4 }</code></pre>
+
+<h2>Countermodels, and what search cannot do</h2>
+<p>An argument is invalid when some structure makes the premises true and the conclusion false. <code>countermodel</code> looks for one:</p>
+<pre><code>const c = countermodel("∀x ∃y L(x, y)", "∃y ∀x L(x, y)");
+c.status;                          // "invalid"
+c.countermodel.describe().predicates;   // { L: [[0, 0], [1, 1]] }: everyone loves only themselves</code></pre>
+<p>Not finding a countermodel proves nothing. First-order validity is undecidable (Church and Turing, 1936), and some sentences have only infinite models: a strict order with no largest element, for example. So an empty search is reported as <code>"unresolved"</code> with the size searched, never as "valid". Validity is shown by a proof or a closed tree; see <a href="first-order-proofs.html">First-order proofs and trees</a>.</p>
+<pre><code>countermodel("∀x (H(x) → M(x)), H(s)", "M(s)");
+// { status: "unresolved", reason: "no countermodel with at most 4 elements", upTo: 4 }
+
+// irreflexive, transitive, and everything below something: only infinite models
+findModel("∀x ¬R(x, x), ∀x ∀y ∀z (R(x, y) ∧ R(y, z) → R(x, z)), ∀x ∃y R(x, y)", { maxSize: 5 });
+// { status: "none", upTo: 5 }</code></pre>
+
+<h2>Reference</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>structure({ domain, constants, functions, predicates })</code></td><td>A <code>Structure</code>: <code>domain</code>, <code>size</code>, <code>holds(f, env)</code>, <code>term(t, env)</code>, <code>describe()</code> as plain data.</td></tr>
+<tr><td><code>evaluate(f, M, { assignment, explain })</code></td><td><code>{ value, reason }</code>, with <code>steps</code> when explained. Free variables need values in <code>assignment</code>.</td></tr>
+<tr><td><code>findModel(sentences, { minSize, maxSize, budget })</code></td><td><code>"found"</code> with a checked <code>model</code> and <code>size</code>; <code>"none"</code> up to <code>maxSize</code> (4 unless you say); or <code>"unresolved"</code> at the solver's budget.</td></tr>
+<tr><td><code>countermodel(premises, conclusion, options)</code></td><td><code>"invalid"</code> with a checked <code>countermodel</code>, or <code>"unresolved"</code>.</td></tr>
+</table></div>
+<section class="runbox" aria-label="Runnable code">
+  <div class="runbox-head"><strong>Try it</strong><span>Edit the code and run it with <code>@ratmath/logic</code> and Core's <code>Rational</code> in scope. The last line's value is shown; <code>PRINT(…)</code> adds lines, <code>TEX(…)</code> typesets math.</span></div>
+  <textarea spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code">// A puzzle as sentences: everyone is liked by someone, nobody likes themselves,
+// and liking is not mutual. What is the smallest world where all of that holds?
+const rules = [
+  "∀x ∃y Likes(y, x)",
+  "∀x ¬Likes(x, x)",
+  "∀x ∀y (Likes(x, y) → ¬Likes(y, x))",
+];
+const r = findModel(rules, { maxSize: 5 });
+PRINT(r.status, "with", r.size, "people");
+PRINT("who likes whom:", JSON.stringify(r.model.describe().predicates.Likes));
+for (const s of rules) PRINT(s, "→", evaluate(s, r.model).value);
+
+// Add "someone likes everyone else": that person would need an admirer,
+// whom they like back. No model of any size up to 5:
+findModel([...rules, "∃x ∀y (x ≠ y → Likes(x, y))"], { maxSize: 5 })</textarea>
+  <div class="runbox-bar"><button type="button" data-run>Run</button><button type="button" class="ghost" data-reset>Reset</button><span class="runbox-meta">Ctrl/⌘ + Enter runs</span></div>
+  <div class="runbox-out" aria-live="polite"></div>
+</section>
+<footer class="sitelinks"><a href="https://github.com/ratmath/logic">GitHub</a> · <a href="https://ratmath.com/">ratmath.com</a> · <a href="https://ratmath.com/shelf/">shelf</a> · <a href="https://ratmath.com/core/">core</a></footer>
+</article>
+</main>
+</div>
+</body>
+</html>

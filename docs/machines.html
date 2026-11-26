@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grammars and machines · RatMath Logic</title>
+<meta property="og:title" content="Grammars and machines · RatMath Logic">
+<meta property="og:description" content="Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ratmath.com/logic/machines.html">
+<meta name="description" content="Grammars, pushdown automata, Turing machines and recursive functions in @ratmath/logic: CYK parsing with parse trees, Chomsky normal form, machines run with a step budget, and primitive recursion from scratch.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://ratmath.com/assets/katex/0.19.1/katex.min.css">
+<link rel="stylesheet" href="assets/style.css?v=c0912fd321">
+<script type="module" src="assets/site.js?v=c0912fd321"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Grammars and machines</h1>
+<p class="lede">Beyond finite automata the machines get memory: a stack, then an unbounded tape. Each step up recognises more languages, and at the top, with Turing machines and recursive functions, the questions stop being decidable. Machines here run with a step budget, and a machine that has not halted is reported as running, never as rejecting.</p>
+
+<h2>Context-free grammars</h2>
+<p>A grammar has rules that rewrite a nonterminal (a capital letter) into a string of symbols. The words it generates are the strings of terminals reachable from the start symbol. <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo>→</mo><mi>a</mi><mi>S</mi><mi>b</mi><mo>∣</mo><mi>ε</mi></mrow><annotation encoding="application/x-tex">S \to aSb \mid \varepsilon</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">a</span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mord mathnormal">b</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">∣</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">ε</span></span></span></span> generates <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>a</mi><mi>n</mi></msup><msup><mi>b</mi><mi>n</mi></msup></mrow><annotation encoding="application/x-tex">a^n b^n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord"><span class="mord mathnormal">a</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6644em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">n</span></span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal">b</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6644em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">n</span></span></span></span></span></span></span></span></span></span></span>, which no finite automaton can recognise, since it would need to count without limit.</p>
+<pre><code>import { grammar, showTree } from "@ratmath/logic";
+
+const g = grammar("S -&gt; a S b | ε");
+g.words(8).words;        // ["", "ab", "aabb", "aaabbb", "aaaabbbb"]
+showTree(g.parse("aabb").tree);   // "S(a S(a S(ε) b) b)"</code></pre>
+<p>Membership is decided by the CYK method. The grammar is first put in <em>Chomsky normal form</em>, where every rule is <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>→</mo><mi>B</mi><mi>C</mi></mrow><annotation encoding="application/x-tex">A \to BC</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span></span></span></span> or <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>→</mo><mi>a</mi></mrow><annotation encoding="application/x-tex">A \to a</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">a</span></span></span></span>: ε-rules and unit rules are removed, and long rules are split. Then a table records which nonterminals generate each piece of the word, shortest pieces first, in time <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mo stretchy="false">(</mo><msup><mi>n</mi><mn>3</mn></msup><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">O(n^3)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1.0641em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">O</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">n</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span>. When the word is accepted, a parse tree in the grammar as you wrote it is found too.</p>
+<pre><code>g.toCNF().toString();
+// S → T0 X0 | T0 T1
+// X0 → S T1
+// S0 → ε | T0 X0 | T0 T1
+// T0 → a
+// T1 → b
+
+const e = grammar("E -&gt; E + T | T\nT -&gt; T * F | F\nF -&gt; ( E ) | x");
+showTree(e.parse("x+x*x").tree);   // "E(E(T(F(x))) + T(T(F(x)) * F(x)))": * binds tighter
+e.accepts("x+*x");                  // false</code></pre>
+
+<h2>Pushdown automata</h2>
+<p>A pushdown automaton is a finite automaton with a stack. Each move reads a symbol (or nothing), pops the top of the stack (or nothing), and pushes a string. It accepts by ending in an accepting state. These machines recognise exactly the context-free languages. The run searches the possible computations breadth first and returns the accepting one it finds:</p>
+<pre><code>import { pda } from "@ratmath/logic";
+
+// a's push A, then each b pops one; accept when only Z is left
+const anbn = pda({ start: "q0", accept: ["q2"], moves: [
+  ["q0", "a", "ε", "q0", "A"], ["q0", "ε", "ε", "q1", "ε"],
+  ["q1", "b", "A", "q1", "ε"], ["q1", "ε", "Z", "q2", "Z"]] });
+anbn.run("aabb").trace.map((c) =&gt; `${c.state} ${c.read || "-"} ${c.stack}`);
+// ["q0 - Z", "q0 a AZ", "q0 aa AAZ", "q1 aa AAZ", "q1 aab AZ", "q1 aabb Z", "q2 aabb Z"]
+anbn.accepts("aab");    // false</code></pre>
+
+<h2>Turing machines</h2>
+<p>A Turing machine has a tape, unbounded both ways, and a head that reads a symbol, writes one, and moves left or right, according to a table indexed by state and symbol. Every algorithm can be written as one (the Church–Turing thesis), and so whether a machine halts cannot in general be decided: the halting problem. So <code>run</code> takes a budget, and a machine still going at the end is <code>"running"</code>.</p>
+<pre><code>import { turing, binaryIncrement } from "@ratmath/logic";
+
+binaryIncrement().run("1011", { trace: true });
+// { status: "accepted", steps: 8, tape: "1100", trace: ["right: [1]011", "right: 1[0]11", …,
+//   "carry: 101[1]_", "carry: 10[1]0_", "carry: 1[0]00_", "done: 1[1]00_"] }
+
+turing({ start: "q", delta: { "q,_": ["q", "_", "R"] } }).run("", { budget: 50 }).status;
+// "running": this one walks right forever, but the run only knows it has not stopped</code></pre>
+<p>A transition is written <code>"state,symbol": [new state, symbol written, move]</code>, with moves <code>L</code>, <code>R</code> or <code>S</code> (stay). With no transition the machine halts without accepting.</p>
+
+<h2>Recursive functions</h2>
+<p>The other road to computability builds functions on the natural numbers from a few pieces: zero, successor, projections <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>P</mi><mi>i</mi><mi>n</mi></msubsup></mrow><annotation encoding="application/x-tex">P^n_i</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.942em;vertical-align:-0.2587em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.1389em;">P</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.6644em;"><span style="top:-2.4413em;margin-left:-0.1389em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">i</span></span></span><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">n</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2587em;"><span></span></span></span></span></span></span></span></span></span>, composition, and <em>primitive recursion</em>: <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false">(</mo><mn>0</mn><mo separator="true">,</mo><mover accent="true"><mi>y</mi><mo>⃗</mo></mover><mo stretchy="false">)</mo><mo>=</mo><mi>g</mi><mo stretchy="false">(</mo><mover accent="true"><mi>y</mi><mo>⃗</mo></mover><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">f(0, \vec y) = g(\vec y)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mopen">(</span><span class="mord">0</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord katex-accent"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.714em;"><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span></span><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="accent-body" style="left:-0.1799em;"><span class="katex-overlay" style="height:0.714em;width:0.471em;"><svg xmlns="http://www.w3.org/2000/svg" width="0.471em" height="0.714em" style="width:0.471em" viewBox="0 0 471 714" preserveAspectRatio="xMinYMin"><path d="M377 20c0-5.333 1.833-10 5.5-14S391 0 397 0c4.667 0 8.667 1.667 12 5
+3.333 2.667 6.667 9 10 19 6.667 24.667 20.333 43.667 41 57 7.333 4.667 11
+10.667 11 18 0 6-1 10-3 12s-6.667 5-14 9c-28.667 14.667-53.667 35.667-75 63
+-1.333 1.333-3.167 3.5-5.5 6.5s-4 4.833-5 5.5c-1 .667-2.5 1.333-4.5 2s-4.333 1
+-7 1c-4.667 0-9.167-1.833-13.5-5.5S337 184 337 178c0-12.667 15.667-32.333 47-59
+H213l-171-1c-8.667-6-13-12.333-13-19 0-4.667 4.333-11.333 13-20h359
+c-16-25.333-24-45-24-59z"/></svg></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.1944em;"><span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">g</span><span class="mopen">(</span><span class="mord katex-accent"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.714em;"><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span></span><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="accent-body" style="left:-0.1799em;"><span class="katex-overlay" style="height:0.714em;width:0.471em;"><svg xmlns="http://www.w3.org/2000/svg" width="0.471em" height="0.714em" style="width:0.471em" viewBox="0 0 471 714" preserveAspectRatio="xMinYMin"><path d="M377 20c0-5.333 1.833-10 5.5-14S391 0 397 0c4.667 0 8.667 1.667 12 5
+3.333 2.667 6.667 9 10 19 6.667 24.667 20.333 43.667 41 57 7.333 4.667 11
+10.667 11 18 0 6-1 10-3 12s-6.667 5-14 9c-28.667 14.667-53.667 35.667-75 63
+-1.333 1.333-3.167 3.5-5.5 6.5s-4 4.833-5 5.5c-1 .667-2.5 1.333-4.5 2s-4.333 1
+-7 1c-4.667 0-9.167-1.833-13.5-5.5S337 184 337 178c0-12.667 15.667-32.333 47-59
+H213l-171-1c-8.667-6-13-12.333-13-19 0-4.667 4.333-11.333 13-20h359
+c-16-25.333-24-45-24-59z"/></svg></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.1944em;"><span></span></span></span></span></span><span class="mclose">)</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>f</mi><mo stretchy="false">(</mo><mi>x</mi><mo>+</mo><mn>1</mn><mo separator="true">,</mo><mover accent="true"><mi>y</mi><mo>⃗</mo></mover><mo stretchy="false">)</mo><mo>=</mo><mi>h</mi><mo stretchy="false">(</mo><mi>x</mi><mo separator="true">,</mo><mi>f</mi><mo stretchy="false">(</mo><mi>x</mi><mo separator="true">,</mo><mover accent="true"><mi>y</mi><mo>⃗</mo></mover><mo stretchy="false">)</mo><mo separator="true">,</mo><mover accent="true"><mi>y</mi><mo>⃗</mo></mover><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">f(x+1, \vec y) = h(x, f(x, \vec y), \vec y)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mopen">(</span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">1</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord katex-accent"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.714em;"><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span></span><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="accent-body" style="left:-0.1799em;"><span class="katex-overlay" style="height:0.714em;width:0.471em;"><svg xmlns="http://www.w3.org/2000/svg" width="0.471em" height="0.714em" style="width:0.471em" viewBox="0 0 471 714" preserveAspectRatio="xMinYMin"><path d="M377 20c0-5.333 1.833-10 5.5-14S391 0 397 0c4.667 0 8.667 1.667 12 5
+3.333 2.667 6.667 9 10 19 6.667 24.667 20.333 43.667 41 57 7.333 4.667 11
+10.667 11 18 0 6-1 10-3 12s-6.667 5-14 9c-28.667 14.667-53.667 35.667-75 63
+-1.333 1.333-3.167 3.5-5.5 6.5s-4 4.833-5 5.5c-1 .667-2.5 1.333-4.5 2s-4.333 1
+-7 1c-4.667 0-9.167-1.833-13.5-5.5S337 184 337 178c0-12.667 15.667-32.333 47-59
+H213l-171-1c-8.667-6-13-12.333-13-19 0-4.667 4.333-11.333 13-20h359
+c-16-25.333-24-45-24-59z"/></svg></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.1944em;"><span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">h</span><span class="mopen">(</span><span class="mord mathnormal">x</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mopen">(</span><span class="mord mathnormal">x</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord katex-accent"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.714em;"><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span></span><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="accent-body" style="left:-0.1799em;"><span class="katex-overlay" style="height:0.714em;width:0.471em;"><svg xmlns="http://www.w3.org/2000/svg" width="0.471em" height="0.714em" style="width:0.471em" viewBox="0 0 471 714" preserveAspectRatio="xMinYMin"><path d="M377 20c0-5.333 1.833-10 5.5-14S391 0 397 0c4.667 0 8.667 1.667 12 5
+3.333 2.667 6.667 9 10 19 6.667 24.667 20.333 43.667 41 57 7.333 4.667 11
+10.667 11 18 0 6-1 10-3 12s-6.667 5-14 9c-28.667 14.667-53.667 35.667-75 63
+-1.333 1.333-3.167 3.5-5.5 6.5s-4 4.833-5 5.5c-1 .667-2.5 1.333-4.5 2s-4.333 1
+-7 1c-4.667 0-9.167-1.833-13.5-5.5S337 184 337 178c0-12.667 15.667-32.333 47-59
+H213l-171-1c-8.667-6-13-12.333-13-19 0-4.667 4.333-11.333 13-20h359
+c-16-25.333-24-45-24-59z"/></svg></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.1944em;"><span></span></span></span></span></span><span class="mclose">)</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord katex-accent"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.714em;"><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span></span><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="accent-body" style="left:-0.1799em;"><span class="katex-overlay" style="height:0.714em;width:0.471em;"><svg xmlns="http://www.w3.org/2000/svg" width="0.471em" height="0.714em" style="width:0.471em" viewBox="0 0 471 714" preserveAspectRatio="xMinYMin"><path d="M377 20c0-5.333 1.833-10 5.5-14S391 0 397 0c4.667 0 8.667 1.667 12 5
+3.333 2.667 6.667 9 10 19 6.667 24.667 20.333 43.667 41 57 7.333 4.667 11
+10.667 11 18 0 6-1 10-3 12s-6.667 5-14 9c-28.667 14.667-53.667 35.667-75 63
+-1.333 1.333-3.167 3.5-5.5 6.5s-4 4.833-5 5.5c-1 .667-2.5 1.333-4.5 2s-4.333 1
+-7 1c-4.667 0-9.167-1.833-13.5-5.5S337 184 337 178c0-12.667 15.667-32.333 47-59
+H213l-171-1c-8.667-6-13-12.333-13-19 0-4.667 4.333-11.333 13-20h359
+c-16-25.333-24-45-24-59z"/></svg></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.1944em;"><span></span></span></span></span></span><span class="mclose">)</span></span></span></span>. These are the primitive recursive functions, and every one of them halts. Adding <em>minimisation</em>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>μ</mi><mi>x</mi><mi mathvariant="normal">.</mi><mtext> </mtext><mi>f</mi><mo stretchy="false">(</mo><mi>x</mi><mo separator="true">,</mo><mover accent="true"><mi>y</mi><mo>⃗</mo></mover><mo stretchy="false">)</mo><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\mu x.\, f(x, \vec y) = 0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">μx</span><span class="mord">.</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.1076em;">f</span><span class="mopen">(</span><span class="mord mathnormal">x</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord katex-accent"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.714em;"><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">y</span></span><span style="top:-3em;"><span class="pstrut" style="height:3em;"></span><span class="accent-body" style="left:-0.1799em;"><span class="katex-overlay" style="height:0.714em;width:0.471em;"><svg xmlns="http://www.w3.org/2000/svg" width="0.471em" height="0.714em" style="width:0.471em" viewBox="0 0 471 714" preserveAspectRatio="xMinYMin"><path d="M377 20c0-5.333 1.833-10 5.5-14S391 0 397 0c4.667 0 8.667 1.667 12 5
+3.333 2.667 6.667 9 10 19 6.667 24.667 20.333 43.667 41 57 7.333 4.667 11
+10.667 11 18 0 6-1 10-3 12s-6.667 5-14 9c-28.667 14.667-53.667 35.667-75 63
+-1.333 1.333-3.167 3.5-5.5 6.5s-4 4.833-5 5.5c-1 .667-2.5 1.333-4.5 2s-4.333 1
+-7 1c-4.667 0-9.167-1.833-13.5-5.5S337 184 337 178c0-12.667 15.667-32.333 47-59
+H213l-171-1c-8.667-6-13-12.333-13-19 0-4.667 4.333-11.333 13-20h359
+c-16-25.333-24-45-24-59z"/></svg></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.1944em;"><span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6444em;"></span><span class="mord">0</span></span></span></span>, the least zero, gives the general recursive functions, exactly the functions Turing machines compute, and with it the possibility of searching forever.</p>
+<pre><code>import { recursive } from "@ratmath/logic";
+
+const { add, mult, power, factorial } = recursive.examples;   // built only from the pieces
+add.at(3, 4);            // 7n
+power.at(2, 10);         // 1024n
+factorial.at(7);         // 5040n
+
+const { compose, proj } = recursive;
+const double = compose(add, [proj(1, 1), proj(1, 1)]);
+double.at(21);           // 42n
+double.name;             // "add∘(P1^1,P1^1)"</code></pre>
+<p>These are computed the honest way, so addition takes <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi></mrow><annotation encoding="application/x-tex">x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span></span></span></span> successor steps and multiplication repeats addition: keep the numbers small. <code>mu</code> stops at its budget and says that the search may never end.</p>
+
+<h2>Reference</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>grammar(text | { start, rules })</code></td><td>A <code>Grammar</code>: <code>words(maxLength)</code>, <code>toCNF()</code>, <code>parse(word)</code> (<code>accepted</code>, <code>tree</code>, <code>cnfTree</code>), <code>accepts</code>, <code>toString()</code>.</td></tr>
+<tr><td><code>showTree(tree)</code></td><td>A parse tree as <code>S(a S(…) b)</code>.</td></tr>
+<tr><td><code>pda({ start, accept, stackStart, moves })</code></td><td>A <code>PDA</code>; <code>run(word, { budget })</code> gives <code>"accepted"</code> with a <code>trace</code>, <code>"rejected"</code>, or <code>"unresolved"</code>.</td></tr>
+<tr><td><code>turing({ start, accept, reject, blank, delta })</code></td><td>A <code>TuringMachine</code>; <code>run(input, { budget, trace })</code> gives <code>status</code> (<code>"accepted"</code>, <code>"rejected"</code>, <code>"halted"</code>, <code>"running"</code>), <code>steps</code>, <code>tape</code>, <code>head</code>.</td></tr>
+<tr><td><code>binaryIncrement()</code></td><td>A machine that adds one to a binary number.</td></tr>
+<tr><td><code>recursive</code></td><td><code>zero</code>, <code>succ</code>, <code>proj(i, n)</code>, <code>compose(f, gs)</code>, <code>primrec(g, h)</code>, <code>mu(f, { budget })</code>, <code>constant(c, n)</code>, and <code>examples</code>: add, mult, pred, monus, power, factorial. Each has <code>arity</code>, <code>name</code>, <code>at(...)</code> on BigInt.</td></tr>
+</table></div>
+<section class="runbox" aria-label="Runnable code">
+  <div class="runbox-head"><strong>Try it</strong><span>Edit the code and run it with <code>@ratmath/logic</code> and Core's <code>Rational</code> in scope. The last line's value is shown; <code>PRINT(…)</code> adds lines, <code>TEX(…)</code> typesets math.</span></div>
+  <textarea spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code">// A Turing machine that checks a word of a's and b's is a palindrome:
+// cross off the first symbol, run to the end, check it matches, come back.
+const pal = turing({ start: "s", accept: "yes", reject: "no", delta: {
+  "s,a": ["ra", "_", "R"], "s,b": ["rb", "_", "R"], "s,_": ["yes", "_", "S"],
+  "ra,a": ["ra", "a", "R"], "ra,b": ["ra", "b", "R"], "ra,_": ["ca", "_", "L"],
+  "rb,a": ["rb", "a", "R"], "rb,b": ["rb", "b", "R"], "rb,_": ["cb", "_", "L"],
+  "ca,a": ["back", "_", "L"], "ca,b": ["no", "b", "S"], "ca,_": ["yes", "_", "S"],
+  "cb,b": ["back", "_", "L"], "cb,a": ["no", "a", "S"], "cb,_": ["yes", "_", "S"],
+  "back,a": ["back", "a", "L"], "back,b": ["back", "b", "L"], "back,_": ["s", "_", "R"],
+} });
+for (const w of ["abba", "aba", "abab", ""]) {
+  const r = pal.run(w);
+  PRINT(JSON.stringify(w), r.status, "in", r.steps, "steps");
+}
+
+// The same language by a grammar
+const g = grammar("S -&gt; a S a | b S b | a | b | ε");
+["abba", "aba", "abab"].map((w) =&gt; g.accepts(w))</textarea>
+  <div class="runbox-bar"><button type="button" data-run>Run</button><button type="button" class="ghost" data-reset>Reset</button><span class="runbox-meta">Ctrl/⌘ + Enter runs</span></div>
+  <div class="runbox-out" aria-live="polite"></div>
+</section>
+<footer class="sitelinks"><a href="https://github.com/ratmath/logic">GitHub</a> · <a href="https://ratmath.com/">ratmath.com</a> · <a href="https://ratmath.com/shelf/">shelf</a> · <a href="https://ratmath.com/core/">core</a></footer>
+</article>
+</main>
+</div>
+</body>
+</html>

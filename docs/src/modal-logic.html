@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Modal logic · RatMath Logic</title>
+<meta name="description" content="Modal logic in @ratmath/logic: necessity and possibility, Kripke models and frames, the systems K, D, T, B, S4 and S5, and validity by labelled truth trees with checked countermodels.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script type="module" src="assets/site.js"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Modal logic</h1>
+<p class="lede">Modal logic adds two operators: \(\Box A\), "necessarily \(A\)", and \(\Diamond A\), "possibly \(A\)". Read them as knowledge, obligation, provability or time, and the same machinery applies. What changes from reading to reading is which axioms hold, and Kripke's semantics ties each axiom to a property of a picture.</p>
+
+<h2>Formulas</h2>
+<p>Write \(\Box\) as <code>□</code>, <code>[]</code>, <code>box</code> or <code>nec</code>, and \(\Diamond\) as <code>◇</code>, <code>&lt;&gt;</code>, <code>dia</code> or <code>poss</code>. Everything else is propositional. \(\Diamond A\) means the same as \(\lnot\Box\lnot A\).</p>
+<pre><code>import { parseModal } from "@ratmath/logic";
+
+const f = parseModal("[]p -&gt; &lt;&gt;p");
+String(f);                        // "□p → ◇p"
+f.modalDepth;                     // 1
+String(parseModal("box p -&gt; dia p"));   // "□p → ◇p"</code></pre>
+
+<h2>Kripke models</h2>
+<p>A Kripke model is a set of <em>worlds</em>, an <em>accessibility</em> relation saying which worlds each world "sees", and a valuation saying where each atom is true. Then \(\Box A\) is true at \(w\) when \(A\) is true at every world \(w\) sees, and \(\Diamond A\) when \(A\) is true at some world \(w\) sees. A world that sees nothing makes every \(\Box A\) true, even \(\Box\bot\).</p>
+<pre><code>import { kripke } from "@ratmath/logic";
+
+const M = kripke({ worlds: ["a", "b", "c"],
+  access: [["a", "b"], ["a", "c"], ["b", "b"]], valuation: { p: ["b"] } });
+M.truthAt("◇p ∧ ◇¬p", "a");      // true: a sees b (p) and c (not p)
+M.truthAt("□⊥", "c");            // true: c sees nothing
+M.trueAt("□p");                  // ["b", "c"]
+M.truthAt("□p", "a", { explain: true }).steps[0];
+// "□p at a: false (p fails at c, which a sees)"</code></pre>
+
+<h2>Axioms and frames</h2>
+<p>A <em>frame</em> is a Kripke model without the valuation. A formula is valid on a frame when it is true at every world under every valuation, and some formulas are valid exactly on the frames with a property:</p>
+<div class="tablewrap"><table class="ref">
+<tr><th>Axiom</th><th>Formula</th><th>Valid exactly on frames that are</th></tr>
+<tr><td>K</td><td>\(\Box(p \to q) \to (\Box p \to \Box q)\)</td><td>all frames</td></tr>
+<tr><td>D</td><td>\(\Box p \to \Diamond p\)</td><td>serial: every world sees some world</td></tr>
+<tr><td>T</td><td>\(\Box p \to p\)</td><td>reflexive</td></tr>
+<tr><td>B</td><td>\(p \to \Box\Diamond p\)</td><td>symmetric</td></tr>
+<tr><td>4</td><td>\(\Box p \to \Box\Box p\)</td><td>transitive</td></tr>
+<tr><td>5</td><td>\(\Diamond p \to \Box\Diamond p\)</td><td>euclidean</td></tr>
+</table></div>
+<p>The usual systems are named for their frames: K (any), D (serial), T (reflexive), B (reflexive and symmetric), S4 (reflexive and transitive) and S5 (all three, an equivalence relation). For knowledge, T says that what is known is true; 4 says that what is known is known to be known.</p>
+<pre><code>import { validOnFrame, SYSTEMS } from "@ratmath/logic";
+
+validOnFrame("□p → p", { worlds: 2, access: [["w1", "w1"], ["w2", "w2"], ["w1", "w2"]] });
+// { valid: true }: the frame is reflexive
+const v = validOnFrame("□p → □□p", { worlds: 3, access: [["w1", "w2"], ["w2", "w3"]] });
+v.valid, v.valuation, v.world;    // false, { p: ["w2"] }, "w1": the frame is not transitive</code></pre>
+
+<h2>Deciding validity</h2>
+<p><code>modalValid</code> builds a truth tree with each formula labelled by its world. \(\lnot\Box A\) at \(w\) creates a new world that \(w\) sees, with \(\lnot A\) there; \(\Box A\) at \(w\) sends \(A\) to every world \(w\) sees. The frame properties of the system add edges: a loop at each world for T, an edge back for B, edges through for S4. If every branch closes, the formula is valid in the system. If a branch stays open, its worlds and edges are a countermodel, which is checked to be a frame of the system and to make the formula false.</p>
+<pre><code>import { modalValid, showModalTree } from "@ratmath/logic";
+
+modalValid("□p → p").status;                   // "invalid" in K
+modalValid("□p → p").countermodel.describe();
+// { worlds: ["w1"], access: { w1: [] }, valuation: { p: [] } }
+modalValid("□p → p", { system: "T" }).status;  // "valid"
+
+const r = modalValid("◇p → □◇p", { system: "S4" });
+r.status;                                      // "invalid": axiom 5 needs S5
+r.countermodel.describe().access;              // { w1: ["w2", "w3", "w1"], w2: ["w2"], w3: ["w3"] }
+
+showModalTree(modalValid("□(p→q)→(□p→□q)").tree);
+// w1: ¬(□(p → q) → (□p → □q))    (the formula is assumed false at w1)
+// w1: □(p → q)    …
+// w2: w1 sees w2    (for ¬□q at w1)
+// w2: ¬q    (from ¬□q at w1)
+// …
+//   × closed: q and ¬q at w2</code></pre>
+<p>In S4 and S5 a tree could keep making worlds forever. A world whose formulas already appear at an earlier world is given no new successors; it points back to that world instead, which keeps every tree finite. The tests check the whole table of axioms against all six systems, and every countermodel against its frame conditions.</p>
+
+<h2>Reference</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>parseModal(text), modal(x)</code></td><td>A <code>ModalFormula</code>: <code>atoms()</code>, <code>modalDepth</code>, <code>toString({ style })</code>.</td></tr>
+<tr><td><code>kripke({ worlds, access, valuation })</code></td><td>A <code>Kripke</code> model: <code>sees(w)</code>, <code>truthAt(f, w, { explain })</code>, <code>trueAt(f)</code>, <code>holds(f)</code>, <code>properties()</code>, <code>describe()</code>.</td></tr>
+<tr><td><code>SYSTEMS</code></td><td>The frame conditions of K, D, T, B, S4 and S5.</td></tr>
+<tr><td><code>validOnFrame(f, frame)</code></td><td>Every valuation tried (up to \(2^{20}\)); <code>{ valid }</code>, or a <code>valuation</code> and <code>world</code> where it fails.</td></tr>
+<tr><td><code>modalValid(f, { system, budget })</code></td><td><code>"valid"</code> with the closed <code>tree</code>, <code>"invalid"</code> with a checked <code>countermodel</code>, or <code>"unresolved"</code>.</td></tr>
+<tr><td><code>showModalTree(tree)</code></td><td>The tree as text.</td></tr>
+</table></div>
+<template data-runbox>
+// Which systems prove which axioms? Each "-" comes with a countermodel.
+const axioms = [["K", "□(p→q)→(□p→□q)"], ["D", "□p→◇p"], ["T", "□p→p"], ["B", "p→□◇p"], ["4", "□p→□□p"], ["5", "◇p→□◇p"]];
+const systems = ["K", "D", "T", "B", "S4", "S5"];
+PRINT("axiom  " + systems.map((s) =&gt; s.padEnd(3)).join(""));
+for (const [name, f] of axioms) {
+  PRINT(name.padEnd(7) + systems.map((s) =&gt; (modalValid(f, { system: s }).status === "valid" ? "✓" : "-").padEnd(3)).join(""));
+}
+
+// The countermodel to 4 in T
+modalValid("□p→□□p", { system: "T" }).countermodel.describe()
+</template>
+</article>
+</main>
+</div>
+</body>
+</html>

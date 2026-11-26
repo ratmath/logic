@@ -3,7 +3,8 @@
 Formal logic you can compute with for [RatMath](https://ratmath.com/), part of the
 [RatMath Shelf](https://ratmath.com/shelf/).
 
-Propositional logic where every verdict comes with its evidence: a formula is
+Propositional, predicate and modal logic, circuits, syllogisms and the
+machines of computability, where every verdict comes with its evidence: a formula is
 valid with a proof you can replay, invalid with a countermodel that has been
 checked, or reported as unresolved within a stated budget. Proofs written by
 hand are checked line by line, and a failed line is named along with its rule
@@ -27,6 +28,11 @@ checkProof(`1. p -> q    premise
 String(prove("p -> q", "~q -> ~p").proof); // a seven-line Fitch proof
 hint("1. p -> q  premise\n2. | ~q  assumption", { premises: "p -> q", conclusion: "~q -> ~p" }).text;
 // "3. │ │ p   assumption"
+
+foEntails("∀x ∃y L(x, y)", "∃y ∀x L(x, y)").status;  // "invalid", with a checked countermodel
+modalValid("□p → □□p", { system: "S4" }).status;      // "valid", with a closed tree
+syllogism("All men are mortal", "All Greeks are men", "All Greeks are mortal").name;  // "Barbara"
+equivalentAutomata("a*b*", "(a|b)*");      // { equivalent: false, word: "ba", acceptedBy: "second" }
 ```
 
 ## What is built
@@ -54,6 +60,30 @@ hint("1. p -> q  premise\n2. | ~q  assumption", { premises: "p -> q", conclusion
 - **Proof search and hints**: `prove` writes a natural deduction proof that the
   checker accepts; `hint` gives the next line of a proof in progress, and only
   the next line.
+- **Predicate logic**: `parseFO` (∀ ∃ = ≠, function symbols), `prenex`,
+  `skolemize`, capture-avoiding `substitute`; finite `structure`s and
+  `evaluate` with witnesses and counterexamples; `findModel` and
+  `countermodel` search finite domains through the SAT solver and check what
+  they find by evaluation.
+- **First-order proofs and trees**: `checkFOProof` with ∀E, ∃I, ∀I, ∃E, =I,
+  =E and their conditions on names (`foRules`); `foTableau` and `foEntails`
+  close a tree or read a checked countermodel off an open branch.
+- **Circuits and Karnaugh maps**: `circuit`, `circuitFrom` (also NAND-only
+  and NOR-only), `circuitsEquivalent` with a distinguishing input, `adders`,
+  and `karnaugh` with its groups.
+- **Syllogisms**: `syllogism` decides a syllogism by checking every filling
+  of the Venn diagram, with or without existential import, and reports the
+  traditional name, a counterexample and the rules; `validSyllogisms`.
+- **Modal logic**: `parseModal`, Kripke models (`kripke`, `truthAt` with
+  reasons, `properties`), `validOnFrame`, and `modalValid` for K, D, T, B, S4
+  and S5 by labelled truth trees, with countermodels on frames of the system.
+- **Automata and regular expressions**: `automaton`, `toDFA`,
+  `minimizeAutomaton`, `equivalentAutomata` with a shortest word that tells
+  two languages apart, `complement`, `product`, `regexToNFA`, `toRegex`.
+- **Grammars and machines**: `grammar` (words, Chomsky normal form, CYK parse
+  with a tree in the grammar as written), `pda`, `turing` with a step budget
+  ("running" is never "rejected"), and `recursive` functions built from zero,
+  successor, projection, composition, primitive recursion and μ.
 
 ## Planned
 
@@ -61,11 +91,7 @@ From the [library roadmap](https://github.com/ratmath/ratmath/blob/main/docs/des
 
 | Phase | Contents |
 |---|---|
-| 3 | Predicate logic: syntax, finite models, model search, quantifier rules |
-| 4 | Circuits, Karnaugh maps, syllogisms |
-| 5 | Modal logic |
 | 6 | Ordinals, cardinals, Peano arithmetic, Gödel numbering |
-| 7 | Automata, grammars, Turing machines |
 | 8 | Pictures |
 
 What is built depends on nothing; later phases will use Core. The discrete package will use it for Boolean functions.

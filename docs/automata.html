@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Automata and regular expressions · RatMath Logic</title>
+<meta property="og:title" content="Automata and regular expressions · RatMath Logic">
+<meta property="og:description" content="Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ratmath.com/logic/automata.html">
+<meta name="description" content="Finite automata in @ratmath/logic: DFAs and NFAs with traces, the subset construction, minimisation, equivalence with a shortest distinguishing word, regular expressions to automata and back, complements and products.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://ratmath.com/assets/katex/0.19.1/katex.min.css">
+<link rel="stylesheet" href="assets/style.css?v=c0912fd321">
+<script type="module" src="assets/site.js?v=c0912fd321"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Automata and regular expressions</h1>
+<p class="lede">A finite automaton reads a word one symbol at a time, moving between finitely many states, and accepts or rejects at the end. The languages it can recognise are exactly those a regular expression can describe, and almost every question about them can be decided.</p>
+
+<h2>Automata and runs</h2>
+<p>A <em>DFA</em> has one move for each state and symbol. An <em>NFA</em> may have several, or none, or moves on the empty word ε; it accepts when some way of running ends in an accepting state. Give the moves as a table:</p>
+<pre><code>import { automaton } from "@ratmath/logic";
+
+// words with an even number of a's
+const even = automaton({ states: ["e", "o"], alphabet: "ab", start: "e", accept: ["e"],
+  delta: { e: { a: "o", b: "e" }, o: { a: "e", b: "o" } } });
+even.accepts("abba");     // true
+even.run("aba").trace;    // [{ read: null, states: ["e"] }, { read: "a", states: ["o"] },
+                          //  { read: "b", states: ["o"] }, { read: "a", states: ["e"] }]
+even.words(3);            // ["", "b", "aa", "bb", "aab", "aba", "baa", "bbb"]</code></pre>
+
+<h2>From NFA to DFA, and the smallest DFA</h2>
+<p>An NFA is in a <em>set</em> of states at each step, so a DFA whose states are those sets does the same job (the subset construction). It can need <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>2</mn><mi>n</mi></msup></mrow><annotation encoding="application/x-tex">2^n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6644em;"></span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6644em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">n</span></span></span></span></span></span></span></span></span></span></span> states for an <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi></mrow><annotation encoding="application/x-tex">n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">n</span></span></span></span>-state NFA, but usually far fewer are reachable. Then the DFA can be shrunk: two states that accept exactly the same continuations can be merged, and refining "accepting or not" until nothing splits gives the smallest DFA for the language, which is unique up to the names of its states (Myhill and Nerode).</p>
+<pre><code>import { regexToNFA, toDFA, minimizeAutomaton } from "@ratmath/logic";
+
+const n = regexToNFA("(a|b)*abb");     // 20 states, with ε moves
+toDFA(n).states.length;                // 5
+const m = minimizeAutomaton(n);
+m.toString();
+// start q0; accept q3
+// q0 --a--&gt; q1      q0 --b--&gt; q0
+// q1 --a--&gt; q1      q1 --b--&gt; q2
+// q2 --a--&gt; q1      q2 --b--&gt; q3
+// q3 --a--&gt; q1      q3 --b--&gt; q0</code></pre>
+<p>State <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>q</mi><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">q_k</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361em;"><span style="top:-2.55em;margin-left:-0.0359em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.0315em;">k</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span> remembers how much of <code>abb</code> the word has just read.</p>
+
+<h2>Equivalence, with a reason</h2>
+<p>Two automata accept the same language exactly when, running both side by side, no reachable pair of states has one accepting and the other not. A breadth-first search over the pairs finds a <em>shortest</em> word that tells them apart, and the word is checked on both.</p>
+<pre><code>import { equivalentAutomata } from "@ratmath/logic";
+
+equivalentAutomata("(a|b)*", "(a*b*)*");   // { equivalent: true }
+equivalentAutomata("a*b*", "(a|b)*");
+// { equivalent: false, word: "ba", acceptedBy: "second" }</code></pre>
+
+<h2>Regular expressions</h2>
+<p>A regular expression is built from symbols, ε, union <code>|</code>, concatenation and star <code>*</code> (and <code>+</code>, <code>?</code> as shorthand). Thompson's construction turns each piece into a small NFA with one start and one end and joins them with ε moves. Going back, state elimination removes the states of an automaton one at a time, labelling the edges with ever larger expressions, until one edge from start to end is left (Kleene's theorem, both directions).</p>
+<pre><code>import { toRegex } from "@ratmath/logic";
+
+toRegex(even);    // "b*|b*a((b|ab*a)*)ab*"</code></pre>
+<p>The expressions that come back are correct but rarely the shortest; the tests check each against JavaScript's own regular expressions on every word up to length 7.</p>
+
+<h2>Complements and products</h2>
+<p>Complete a DFA with a dead state and swap accepting and rejecting states, and it accepts the complement. Run two DFAs side by side, and accepting when both do (or either, or the first and not the second) gives intersection, union and difference. Regular languages are closed under all of these.</p>
+<pre><code>import { complement, product } from "@ratmath/logic";
+
+product(even, n, "and").words(5);   // ["aabb", "ababb", "baabb"]
+complement(even).words(3);          // ["a", "ab", "ba", "aaa", "abb", "bab", "bba"]</code></pre>
+
+<h2>Reference</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>automaton({ states, alphabet, start, accept, delta })</code></td><td>An <code>Automaton</code>: <code>run(word)</code> with a trace, <code>accepts</code>, <code>words(maxLength)</code>, <code>isDFA</code>, <code>isComplete</code>, <code>toString()</code>.</td></tr>
+<tr><td><code>toDFA(a), complete(a, alphabet)</code></td><td>The subset construction; every move defined, with a dead state ∅.</td></tr>
+<tr><td><code>minimizeAutomaton(a)</code></td><td>The smallest DFA, with states named q0, q1, …</td></tr>
+<tr><td><code>equivalentAutomata(a, b)</code></td><td>Automata or regular expressions. <code>{ equivalent }</code>, with a shortest <code>word</code> when not.</td></tr>
+<tr><td><code>complement(a, alphabet), product(a, b, op)</code></td><td><code>op</code>: <code>"and"</code>, <code>"or"</code> or <code>"minus"</code>.</td></tr>
+<tr><td><code>parseRegex(text), regexToNFA(regex), toRegex(a)</code></td><td>Regular expressions to automata (Thompson) and back (state elimination).</td></tr>
+</table></div>
+<section class="runbox" aria-label="Runnable code">
+  <div class="runbox-head"><strong>Try it</strong><span>Edit the code and run it with <code>@ratmath/logic</code> and Core's <code>Rational</code> in scope. The last line's value is shown; <code>PRINT(…)</code> adds lines, <code>TEX(…)</code> typesets math.</span></div>
+  <textarea spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code">// Binary numbers divisible by 3: the state is the remainder so far.
+const div3 = automaton({ states: ["0", "1", "2"], alphabet: "01", start: "0", accept: ["0"],
+  delta: { 0: { 0: "0", 1: "1" }, 1: { 0: "2", 1: "0" }, 2: { 0: "1", 1: "2" } } });
+const numbers = div3.words(5).filter((w) =&gt; w === "0" || w[0] === "1");   // no leading zeros
+PRINT("accepted up to length 5:", numbers.map((w) =&gt; `${w} = ${parseInt(w, 2)}`).join(", "));
+
+// A regular expression for the same language, found by state elimination
+const re = toRegex(div3);
+PRINT("as a regex:", re);
+PRINT("same language:", equivalentAutomata(re, div3).equivalent);
+
+// Already minimal?
+minimizeAutomaton(div3).states.length</textarea>
+  <div class="runbox-bar"><button type="button" data-run>Run</button><button type="button" class="ghost" data-reset>Reset</button><span class="runbox-meta">Ctrl/⌘ + Enter runs</span></div>
+  <div class="runbox-out" aria-live="polite"></div>
+</section>
+<footer class="sitelinks"><a href="https://github.com/ratmath/logic">GitHub</a> · <a href="https://ratmath.com/">ratmath.com</a> · <a href="https://ratmath.com/shelf/">shelf</a> · <a href="https://ratmath.com/core/">core</a></footer>
+</article>
+</main>
+</div>
+</body>
+</html>

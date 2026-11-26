@@ -102,8 +102,38 @@
 <tr><td><code>tableau(formulas, { budget, all }), Tableau</code></td><td>A truth tree: <code>status</code>, <code>model</code>, <code>lines</code>, <code>branches</code>, <code>root</code>.</td></tr>
 <tr><td><code>tableauProof(premises, conclusion)</code></td><td><code>"valid"</code> with a closed tree or <code>"invalid"</code> with a countermodel.</td></tr>
 <tr><td><code>checkTableau(tableau), tableauRules</code></td><td>The tree checker, and the rules as data.</td></tr>
+</table></div>
+<h2>Predicate logic</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>parseFO(text), fo, foList, FOFormula, Term, parseTerm</code></td><td>First-order formulas: <code>freeVariables()</code>, <code>isSentence</code>, <code>substitute(x, t)</code> without capture, <code>alphaEquals</code>, <code>signature()</code>. See <a href="predicate-logic.html">Predicate logic</a>.</td></tr>
+<tr><td><code>foNnf, prenex, skolemize</code></td><td>Normal forms; Skolem form is equisatisfiable.</td></tr>
+<tr><td><code>structure(spec), Structure, evaluate(f, M, { assignment, explain })</code></td><td>Finite structures, and truth in them with witnesses and counterexamples. See <a href="models.html">Finite models</a>.</td></tr>
+<tr><td><code>findModel(sentences, { maxSize }), countermodel(premises, conclusion)</code></td><td>Model search by SAT, with each model checked; an empty search is <code>"unresolved"</code>, never valid.</td></tr>
+<tr><td><code>checkFOProof, parseFOProof, foRules</code></td><td>Natural deduction with ∀E ∃I ∀I ∃E =I =E. See <a href="first-order-proofs.html">First-order proofs and trees</a>.</td></tr>
+<tr><td><code>foTableau(premises, conclusion, { budget }), showTableau, foEntails</code></td><td>First-order truth trees, and the combined decision.</td></tr>
+</table></div>
+<h2>Circuits, syllogisms, modal logic</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>circuit(spec), Circuit, circuitFrom(f, { gates }), circuitsEquivalent, adders</code></td><td>Circuits: evaluation, truth tables, size, depth, NAND-only and NOR-only forms. See <a href="circuits.html">Circuits and Karnaugh maps</a>.</td></tr>
+<tr><td><code>karnaugh(f | { minterms, atoms, dontCares })</code></td><td>A map with its groups and shortest sum of products.</td></tr>
+<tr><td><code>categorical, categoricalText, syllogism, validSyllogisms</code></td><td>Syllogisms decided on the Venn diagram. See <a href="syllogisms.html">Syllogisms</a>.</td></tr>
+<tr><td><code>parseModal, modal, kripke, Kripke, SYSTEMS, validOnFrame</code></td><td>Modal formulas, Kripke models and frames. See <a href="modal-logic.html">Modal logic</a>.</td></tr>
+<tr><td><code>modalValid(f, { system }), showModalTree</code></td><td>Validity in K, D, T, B, S4, S5 by labelled trees, with checked countermodels.</td></tr>
+</table></div>
+<h2>Automata and machines</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>automaton(spec), Automaton, toDFA, complete, minimizeAutomaton</code></td><td>Finite automata, the subset construction, the smallest DFA. See <a href="automata.html">Automata and regular expressions</a>.</td></tr>
+<tr><td><code>equivalentAutomata(a, b), complement, product</code></td><td>Equivalence with a shortest distinguishing word; Boolean operations.</td></tr>
+<tr><td><code>parseRegex, regexToNFA, toRegex</code></td><td>Regular expressions to automata and back.</td></tr>
+<tr><td><code>grammar(text), Grammar, showTree</code></td><td>Context-free grammars: words, Chomsky normal form, CYK parsing with a tree. See <a href="machines.html">Grammars and machines</a>.</td></tr>
+<tr><td><code>pda(spec), turing(spec), binaryIncrement()</code></td><td>Pushdown automata and Turing machines, run with a step budget.</td></tr>
+<tr><td><code>recursive</code></td><td>Primitive and general recursive functions built from zero, successor and projections.</td></tr>
 <tr><td><code>plan</code></td><td>The phases still to come.</td></tr>
-</table></div><template data-runbox>
+</table></div>
+<template data-runbox>
 // One formula through the whole library.
 const f = parse("(p -&gt; q) &amp; (q -&gt; r) -&gt; (p -&gt; r)");
 PRINT("formula:   ", String(f), " atoms:", f.atoms().join(" "), " size:", f.size);

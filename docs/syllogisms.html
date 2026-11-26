@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Syllogisms · RatMath Logic</title>
+<meta property="og:title" content="Syllogisms · RatMath Logic">
+<meta property="og:description" content="Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ratmath.com/logic/syllogisms.html">
+<meta name="description" content="Categorical syllogisms in @ratmath/logic: the four forms of statement, mood and figure, validity decided on the Venn diagram with or without existential import, the traditional names and rules.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://ratmath.com/assets/katex/0.19.1/katex.min.css">
+<link rel="stylesheet" href="assets/style.css?v=c0912fd321">
+<script type="module" src="assets/site.js?v=c0912fd321"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Syllogisms</h1>
+<p class="lede">For two thousand years logic meant the syllogism: two premises and a conclusion, each saying how two classes are related. Here validity is not looked up in a list. It is decided, by checking every way of filling in a Venn diagram, and the traditional names and rules are reported beside the answer.</p>
+
+<h2>Four forms of statement</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Form</th><th>Statement</th><th>On the Venn diagram</th></tr>
+<tr><td>A</td><td>All S are P</td><td>S outside P is empty</td></tr>
+<tr><td>E</td><td>No S are P</td><td>S inside P is empty</td></tr>
+<tr><td>I</td><td>Some S are P</td><td>S inside P has something in it</td></tr>
+<tr><td>O</td><td>Some S are not P</td><td>S outside P has something in it</td></tr>
+</table></div>
+<pre><code>import { categorical, categoricalText } from "@ratmath/logic";
+
+categorical("No reptiles are mammals");     // { form: "E", subject: "reptiles", predicate: "mammals" }
+categoricalText({ form: "O", subject: "birds", predicate: "fliers" });   // "Some birds are not fliers"</code></pre>
+
+<h2>Mood and figure</h2>
+<p>A syllogism has three terms: the <em>minor</em> term S (the subject of the conclusion), the <em>major</em> term P (its predicate), and the <em>middle</em> term M, which appears in both premises and not in the conclusion. The major premise, written first, contains P. The <em>mood</em> is the three forms in order, and the <em>figure</em> (1 to 4) says where M stands:</p>
+<div class="tablewrap"><table class="ref">
+<tr><th>Figure</th><th>Major premise</th><th>Minor premise</th></tr>
+<tr><td>1</td><td>M – P</td><td>S – M</td></tr>
+<tr><td>2</td><td>P – M</td><td>S – M</td></tr>
+<tr><td>3</td><td>M – P</td><td>M – S</td></tr>
+<tr><td>4</td><td>P – M</td><td>M – S</td></tr>
+</table></div>
+<p>So there are <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>4</mn><mn>3</mn></msup><mo>×</mo><mn>4</mn><mo>=</mo><mn>256</mn></mrow><annotation encoding="application/x-tex">4^3 \times 4 = 256</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.8974em;vertical-align:-0.0833em;"></span><span class="mord"><span class="mord">4</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">3</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6444em;"></span><span class="mord">4</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6444em;"></span><span class="mord">256</span></span></span></span> syllogisms. Give one in words, or by mood and figure:</p>
+<pre><code>import { syllogism } from "@ratmath/logic";
+
+const s = syllogism("All men are mortal", "All Greeks are men", "All Greeks are mortal");
+s.valid, s.form, s.name;    // true, "AAA-1", "Barbara"
+s.terms;                    // { S: "Greeks", M: "men", P: "mortal" }
+s.venn.shaded;              // ["¬SM¬P", "S¬M¬P", "S¬MP", "SM¬P"]: the regions forced empty
+
+syllogism("EIO-2", { S: "poets", M: "rich", P: "happy" }).statements;
+// ["No happy are rich", "Some poets are rich", "Some poets are not happy"]</code></pre>
+
+<h2>Deciding validity</h2>
+<p>The three circles of a Venn diagram make eight regions. A statement says some regions are empty, or that some region among a few has something in it. Each of the <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>2</mn><mn>8</mn></msup><mo>=</mo><mn>256</mn></mrow><annotation encoding="application/x-tex">2^8 = 256</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.8141em;"></span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">8</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6444em;"></span><span class="mord">256</span></span></span></span> choices of which regions have something in them either makes the premises true or not; the syllogism is valid when every choice that makes the premises true makes the conclusion true. If one does not, it is a counterexample, and the fewest occupied regions are reported.</p>
+<pre><code>const bad = syllogism("All dogs are animals", "All cats are animals", "All cats are dogs");
+bad.valid;               // false
+bad.counterexample;      // ["SM¬P"]: a cat that is an animal and not a dog
+bad.rules.filter((r) =&gt; r.broken).map((r) =&gt; r.rule);
+// ["the middle term is distributed at least once"]</code></pre>
+<p>The tests build actual sets from each counterexample, one element per occupied region, and check that the premises come out true and the conclusion false, for every invalid syllogism.</p>
+
+<h2>Existential import</h2>
+<p>Aristotle took every term to have members, so "All S are P" carried "Some S are P" with it. Modern logic does not: "All unicorns have horns" is true because there are no unicorns. The modern reading has 15 valid syllogisms; with existential import, nine more become valid, each with its own name.</p>
+<pre><code>syllogism("AAI-3").valid;              // false: "All M are P, All M are S, so Some S are P"
+syllogism("AAI-3").counterexample;     // []: everything empty
+syllogism("AAI-3", { existentialImport: true }).name;   // "Darapti"
+
+validSyllogisms().map((x) =&gt; x.name).join(", ");
+// "Barbara, Camestres, Calemes, Darii, Datisi, Baroco, Celarent, Cesare,
+//  Ferio, Festino, Ferison, Fresison, Disamis, Dimatis, Bocardo"</code></pre>
+
+<h2>The traditional rules</h2>
+<p>Medieval logicians gave rules that a valid syllogism keeps. A term is <em>distributed</em> when the statement says something about all of it: the subject of A and E, the predicate of E and O.</p>
+<ul>
+<li>The middle term is distributed at least once.</li>
+<li>A term distributed in the conclusion is distributed in its premise (otherwise "illicit major" or "illicit minor").</li>
+<li>Not both premises are negative.</li>
+<li>A negative premise needs a negative conclusion, and a negative conclusion needs a negative premise.</li>
+<li>On the modern reading, two universal premises do not give a particular conclusion.</li>
+</ul>
+<p>Each result lists the rules and which are broken. A syllogism is valid exactly when it breaks none, which the tests check against the Venn decision on all 256.</p>
+
+<h2>Reference</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>categorical(text | { form, subject, predicate })</code></td><td>A statement in one of the four forms.</td></tr>
+<tr><td><code>categoricalText(statement)</code></td><td>The statement in words.</td></tr>
+<tr><td><code>syllogism(major, minor, conclusion, { existentialImport })</code></td><td>Decide a syllogism given in words or as objects.</td></tr>
+<tr><td><code>syllogism("AAA-1", { existentialImport, S, M, P })</code></td><td>Decide by mood and figure, with names for the terms if you like.</td></tr>
+<tr><td><code>result</code></td><td><code>valid</code>, <code>mood</code>, <code>figure</code>, <code>form</code>, <code>name</code>, <code>terms</code>, <code>statements</code>, <code>counterexample</code> (occupied regions), <code>venn</code> (<code>shaded</code>, <code>marked</code>), <code>rules</code>.</td></tr>
+<tr><td><code>validSyllogisms({ existentialImport })</code></td><td>Every valid mood and figure with its name: 15, or 24 with existential import.</td></tr>
+</table></div>
+<section class="runbox" aria-label="Runnable code">
+  <div class="runbox-head"><strong>Try it</strong><span>Edit the code and run it with <code>@ratmath/logic</code> and Core's <code>Rational</code> in scope. The last line's value is shown; <code>PRINT(…)</code> adds lines, <code>TEX(…)</code> typesets math.</span></div>
+  <textarea spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code">// Is this valid? If so, what is it called; if not, which rule does it break?
+const r = syllogism("No heroes are cowards", "Some soldiers are cowards", "Some soldiers are not heroes");
+PRINT(r.form, r.valid ? "valid: " + r.name : "invalid");
+PRINT("statements:", r.statements.join(" / "));
+PRINT("broken rules:", r.rules.filter((x) =&gt; x.broken).map((x) =&gt; x.rule).join("; ") || "none");
+
+// Every mood that becomes valid only with existential import
+const modern = new Set(validSyllogisms().map((x) =&gt; x.form));
+validSyllogisms({ existentialImport: true }).filter((x) =&gt; !modern.has(x.form)).map((x) =&gt; `${x.form} ${x.name}`)</textarea>
+  <div class="runbox-bar"><button type="button" data-run>Run</button><button type="button" class="ghost" data-reset>Reset</button><span class="runbox-meta">Ctrl/⌘ + Enter runs</span></div>
+  <div class="runbox-out" aria-live="polite"></div>
+</section>
+<footer class="sitelinks"><a href="https://github.com/ratmath/logic">GitHub</a> · <a href="https://ratmath.com/">ratmath.com</a> · <a href="https://ratmath.com/shelf/">shelf</a> · <a href="https://ratmath.com/core/">core</a></footer>
+</article>
+</main>
+</div>
+</body>
+</html>
