@@ -1,8 +1,8 @@
 // Shared page furniture for the logic docs: the contents column, the theme
 // switch and the code boxes. Add each topic page to PAGES as it is written.
 
-import * as A from "./logic.js?v=bebe22f322";
-import { mountRunboxes } from "./runbox.js?v=bebe22f322";
+import * as A from "./logic.js?v=c351dc7788";
+import { mountRunboxes } from "./runbox.js?v=c351dc7788";
 
 export { A };
 
@@ -10,8 +10,18 @@ export const PAGES = [
   { href: "index.html", title: "Overview" },
   { href: "reference.html", title: "Reference" },
   { href: "explore.html", title: "Explore" },
-  // { group: "Topics" },
-  // { href: "topic.html", title: "A topic", blurb: "One line about it" },
+  { group: "Meaning" },
+  { href: "formulas.html", title: "Formulas", blurb: "A parser for what people type, printing in Unicode, ASCII and TeX, evaluation and substitution." },
+  { href: "truth-tables.html", title: "Truth tables", blurb: "Full tables with a column for each part, minterms and maxterms, model counts." },
+  { href: "normal-forms.html", title: "Normal forms", blurb: "Negation, conjunctive and disjunctive forms, and the Tseitin form that stays small." },
+  { href: "satisfiability.html", title: "Satisfiability and validity", blurb: "Valid, satisfiable, entailed, equivalent: each answered with a model or a refutation that is checked." },
+  { href: "simplification.html", title: "Simplification", blurb: "Shortest two-level forms by the Quine–McCluskey method, with rows that do not matter." },
+  { group: "Proof" },
+  { href: "natural-deduction.html", title: "Natural deduction", blurb: "A Fitch proof checker that names the line, the rule and what was missing. Rule sets are data." },
+  { href: "sequents.html", title: "Sequent calculus", blurb: "Classical and intuitionistic calculi, derivations found and checked, Kripke countermodels." },
+  { href: "truth-trees.html", title: "Truth trees", blurb: "Trees that close to prove validity, or stay open and give the countermodel." },
+  { href: "resolution.html", title: "Resolution", blurb: "One rule on clauses: the evidence the solver gives, and a checker for refutations by hand." },
+  { href: "proof-search.html", title: "Proof search and hints", blurb: "Proofs written for you in either logic, and hints that give the next line only." },
 ];
 
 export const h = (tag, attrs = {}, ...kids) => {

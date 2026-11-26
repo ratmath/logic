@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Logic Reference</title>
-<meta property="og:title" content="Logic Reference">
+<title>Reference · RatMath Logic</title>
+<meta property="og:title" content="Reference · RatMath Logic">
 <meta property="og:description" content="Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://ratmath.com/logic/reference.html">
-<meta name="description" content="Every function of @ratmath/logic.">
+<meta name="description" content="Every export of @ratmath/logic in one place: formulas, tables, normal forms, the solver, simplification and the four proof systems.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="assets/style.css?v=bebe22f322">
-<script type="module" src="assets/site.js?v=bebe22f322"></script>
+<link rel="stylesheet" href="assets/style.css?v=c351dc7788">
+<script type="module" src="assets/site.js?v=c351dc7788"></script>
 </head>
 <body>
 <div class="shell">
@@ -21,18 +21,105 @@
 <main>
 <article>
 <div class="eyebrow">Reference</div>
-<h1>Everything in the library</h1>
-<p class="lede">Every export of <code>@ratmath/logic</code> will be listed here with what it takes and what it returns.</p>
-<p class="notice"><strong>Planned, not built yet.</strong> This site is the frame the package will grow into. The full plan is in the <a href="https://github.com/ratmath/ratmath/blob/main/docs/design/library-roadmap.md#8-a-logic-package-ratmathlogic">library roadmap</a>, and the <a href="https://ratmath.com/shelf/">RatMath Shelf</a> page lists what exists across all the libraries.</p>
-<div class="tablewrap"><table class="ref" id="ref">
-<tr><th>Export</th><th>What it does</th></tr>
-<tr><td>plan</td><td>The list of planned phases, each { phase, contents, estimate }. It is here so the package has something to load while it is empty, and it shrinks as phases are built.</td></tr>
+<h1>Reference</h1>
+<p class="lede">Every export, grouped by subject. Wherever a formula is expected, text such as <code>"p -> q"</code> is accepted; wherever several are, an array or text with commas.</p>
+
+<h2>Answers</h2>
+<p>Functions that decide something return an object with a <code>status</code> and the evidence for it:</p>
+<div class="tablewrap"><table class="ref">
+<tr><th>Status</th><th>Evidence</th></tr>
+<tr><td><code>"satisfiable"</code>, <code>"invalid"</code>, <code>"different"</code></td><td><code>model</code> or <code>countermodel</code>: a valuation, checked by evaluating the formulas.</td></tr>
+<tr><td><code>"unsatisfiable"</code>, <code>"valid"</code>, <code>"equivalent"</code></td><td><code>refutation</code>: a resolution proof, checked step by step.</td></tr>
+<tr><td><code>"proved"</code></td><td><code>proof</code> or <code>derivation</code>, checked by the proof checker for that system.</td></tr>
+<tr><td><code>"unprovable"</code></td><td><code>kripke</code>: a Kripke model in which the formula fails. Intuitionistic logic only.</td></tr>
+<tr><td><code>"unresolved"</code></td><td><code>reason</code> and the <code>budget</code> that ran out. Pass a larger <code>budget</code> to go further.</td></tr>
 </table></div>
-<section class="runbox" aria-label="Runnable code">
+<p>Arguments the library cannot work with are refused with a <code>LogicError</code> carrying a <code>code</code>: <code>syntax</code>, <code>bad-argument</code>, <code>too-large</code> or <code>bad-proof</code>.</p>
+
+<h2>Formulas</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>parse(text)</code></td><td>Text to a <code>Formula</code>. Accepts <code>~ ! ¬ not</code>, <code>&amp; ^ ∧ and</code>, <code>| ∨ or</code>, <code>-&gt; → implies</code>, <code>&lt;-&gt; ↔ iff</code>, <code>xor ⊕</code>, and <code>T ⊤ true 1</code>, <code>F ⊥ _|_ false 0</code>.</td></tr>
+<tr><td><code>formula(x), formulas(x)</code></td><td>A formula from text or a formula; a list from an array or comma-separated text.</td></tr>
+<tr><td><code>atom, not, and, or, implies, iff, xor, TRUE, FALSE</code></td><td>Builders. <code>and</code> and <code>or</code> take any number of parts.</td></tr>
+<tr><td><code>Formula</code></td><td><code>kind</code>, <code>parts</code>, <code>left</code>, <code>right</code>, <code>isAtom</code>, <code>isLiteral</code>, <code>atoms()</code>, <code>subformulas()</code>, <code>size</code>, <code>depth</code>, <code>equals(g)</code>, <code>evaluate(valuation)</code>, <code>substitute(map)</code>, <code>toString({ style })</code>, <code>toTeX()</code>, <code>toJSON()</code>, <code>key</code>.</td></tr>
+<tr><td><code>matchSchema(pattern, formula), fillSchema(pattern, binding)</code></td><td>Match a formula against a pattern whose capital letters stand for any formula; fill a pattern in.</td></tr>
+<tr><td><code>atomsOf(formulas)</code></td><td>The atoms of several formulas, in order.</td></tr>
+</table></div>
+<h2>Tables</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>truthTable(f, { atoms, subformulas, order })</code></td><td><code>{ atoms, columns, rows, kind, trueRows, toString() }</code>; up to 16 atoms.</td></tr>
+<tr><td><code>minterms(f), maxterms(f)</code></td><td>Row numbers where the formula is true; false.</td></tr>
+<tr><td><code>countModels(f), models(f)</code></td><td>How many valuations satisfy it (a BigInt); the valuations.</td></tr>
+<tr><td><code>fromMinterms(atoms, rows), fromMaxterms(atoms, rows)</code></td><td>The canonical formula with that table.</td></tr>
+<tr><td><code>tableBits(f, atoms)</code></td><td>The table as bits, for up to 22 atoms.</td></tr>
+</table></div>
+<h2>Normal forms</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>foldConstants(f)</code></td><td>Remove ⊤ and ⊥ wherever a connective absorbs them.</td></tr>
+<tr><td><code>nnf(f)</code></td><td>Negation normal form: only ∧, ∨ and negated atoms.</td></tr>
+<tr><td><code>cnf(f, { method, limit }), dnf(f, { method, limit })</code></td><td>Method <code>"distribute"</code> or <code>"table"</code>; <code>cnf</code> also takes <code>"tseitin"</code>.</td></tr>
+<tr><td><code>tseitin(f)</code></td><td><code>{ formula, clauses, definitions, atoms }</code>: an equisatisfiable form of linear size.</td></tr>
+<tr><td><code>clauses(f)</code></td><td>The clauses of a conjunctive form, as lists of literals.</td></tr>
+<tr><td><code>isNnf(f), isCnf(f), isDnf(f)</code></td><td>Whether a formula is already in that form.</td></tr>
+</table></div>
+<h2>Satisfiability</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>satisfiable(f, { budget })</code></td><td><code>"satisfiable"</code> with a <code>model</code> or <code>"unsatisfiable"</code> with a <code>refutation</code>. A list of formulas is taken together.</td></tr>
+<tr><td><code>valid(f, { budget })</code></td><td><code>"valid"</code> with a <code>refutation</code> of the negation, or <code>"invalid"</code> with a <code>countermodel</code>.</td></tr>
+<tr><td><code>entails(premises, conclusion, { budget })</code></td><td>The same for an argument.</td></tr>
+<tr><td><code>equivalent(a, b, { budget })</code></td><td><code>"equivalent"</code> or <code>"different"</code> with a valuation that tells them apart.</td></tr>
+<tr><td><code>classify(f)</code></td><td><code>kind</code>: <code>"tautology"</code>, <code>"contradiction"</code> or <code>"contingent"</code>, with <code>trueUnder</code>, <code>falseUnder</code> or a <code>refutation</code>.</td></tr>
+<tr><td><code>satisfiableClauses(clauses, { budget })</code></td><td>The solver on clauses directly.</td></tr>
+<tr><td><code>clause, literal, showClause, resolve</code></td><td>Clauses and the resolution rule.</td></tr>
+<tr><td><code>ResolutionProof, parseResolution, checkResolution</code></td><td>Resolution refutations and their checker.</td></tr>
+</table></div>
+<h2>Simplification</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>simplify(f, { form, dontCare })</code></td><td>A shortest equivalent two-level formula; form <code>"dnf"</code>, <code>"cnf"</code> or the shorter of the two.</td></tr>
+<tr><td><code>minimize(f, { form, dontCare, atoms })</code></td><td><code>{ formula, form, atoms, terms, literals, exact, primes }</code>; up to 14 atoms.</td></tr>
+<tr><td><code>primeImplicants(f)</code></td><td>Every prime implicant with the rows it covers.</td></tr>
+</table></div>
+<h2>Natural deduction</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>checkProof(proof, { rules, premises, conclusion })</code></td><td><code>{ status, ok, complete, errors, note, proves, lines, rules }</code>; each error is <code>{ line, rule, message }</code>.</td></tr>
+<tr><td><code>parseProof(text, { rules }), Proof</code></td><td>Lines of <code>{ n, depth, formula, rule, cites }</code>; <code>toString({ style })</code>.</td></tr>
+<tr><td><code>rules.intuitionistic, rules.classical, rules.derived</code></td><td>Rule sets. <code>checkProof</code> uses <code>rules.classical</code> unless told otherwise.</td></tr>
+<tr><td><code>ruleSet(name, list, { logic })</code></td><td>A rule set from data: each rule is <code>{ name, aliases, about, forms: [{ from, infer }] }</code>.</td></tr>
+<tr><td><code>proofState(proof)</code></td><td>Open and closed subproofs after the last line.</td></tr>
+<tr><td><code>prove(premises, conclusion, { logic, budget })</code></td><td>A proof, a countermodel, a Kripke model, or unresolved.</td></tr>
+<tr><td><code>hint(proof, { premises, conclusion, rules, budget })</code></td><td>The next line of a proof in progress.</td></tr>
+</table></div>
+<h2>Sequents and truth trees</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>sequent(text), Sequent</code></td><td>Γ ⊢ Δ with <code>left</code> and <code>right</code>.</td></tr>
+<tr><td><code>proveSequent(sequent, { logic, budget })</code></td><td>A derivation, a countermodel, a Kripke model, or unresolved.</td></tr>
+<tr><td><code>checkDerivation, parseDerivation, Derivation</code></td><td>Derivations as numbered lines, and their checker.</td></tr>
+<tr><td><code>calculi.classical, calculi.intuitionistic, calculus(name, rules, options)</code></td><td>G3cp and G3ip as data, and a way to build another.</td></tr>
+<tr><td><code>forces(model, world, f), kripkeCountermodel(left, right)</code></td><td>Kripke models: evaluation, and a search for a countermodel on small trees.</td></tr>
+<tr><td><code>tableau(formulas, { budget, all }), Tableau</code></td><td>A truth tree: <code>status</code>, <code>model</code>, <code>lines</code>, <code>branches</code>, <code>root</code>.</td></tr>
+<tr><td><code>tableauProof(premises, conclusion)</code></td><td><code>"valid"</code> with a closed tree or <code>"invalid"</code> with a countermodel.</td></tr>
+<tr><td><code>checkTableau(tableau), tableauRules</code></td><td>The tree checker, and the rules as data.</td></tr>
+<tr><td><code>plan</code></td><td>The phases still to come.</td></tr>
+</table></div><section class="runbox" aria-label="Runnable code">
   <div class="runbox-head"><strong>Try it</strong><span>Edit the code and run it with <code>@ratmath/logic</code> and Core's <code>Rational</code> in scope. The last line's value is shown; <code>PRINT(…)</code> adds lines, <code>TEX(…)</code> typesets math.</span></div>
-  <textarea spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code">// The one export so far.
-for (const p of plan) PRINT(`phase ${p.phase}:`, p.contents, `(${p.estimate} lines)`);
-plan.length</textarea>
+  <textarea spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code">// One formula through the whole library.
+const f = parse("(p -&gt; q) &amp; (q -&gt; r) -&gt; (p -&gt; r)");
+PRINT("formula:   ", String(f), " atoms:", f.atoms().join(" "), " size:", f.size);
+PRINT("table:     ", truthTable(f).kind, " models:", String(countModels(f)));
+PRINT("nnf:       ", String(nnf(f)));
+PRINT("cnf:       ", String(cnf(f)));
+PRINT("simplified:", String(simplify(f)));
+PRINT("solver:    ", valid(f).status, "in", valid(f).refutation.steps.length, "resolution lines");
+PRINT("tree:      ", tableauProof([], f).status, "in", tableauProof([], f).tableau.lines, "lines");
+PRINT("sequents:  ", proveSequent(sequent([], [f])).derivation.size, "lines");
+String(prove([], f).proof)</textarea>
   <div class="runbox-bar"><button type="button" data-run>Run</button><button type="button" class="ghost" data-reset>Reset</button><span class="runbox-meta">Ctrl/⌘ + Enter runs</span></div>
   <div class="runbox-out" aria-live="polite"></div>
 </section>

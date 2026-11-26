@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Formulas · RatMath Logic</title>
+<meta name="description" content="Propositional formulas in @ratmath/logic: a parser for the notations people type, printing in Unicode, ASCII and TeX, evaluation and substitution.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script type="module" src="assets/site.js"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Formulas</h1>
+<p class="lede">A formula is a tree: atoms at the leaves, connectives above them. <code>parse</code> reads one from text typed on any keyboard, and a <code>Formula</code> prints itself back, lists its atoms and parts, and takes a truth value under a valuation.</p>
+
+<h2>Reading</h2>
+<pre><code>import { parse, formula } from "@ratmath/logic";
+
+const f = parse("~p &amp; q -&gt; (r | s)");
+String(f);                      // "(¬p ∧ q) → (r ∨ s)"
+f.kind;                         // "imp"
+String(f.left);                 // "¬p ∧ q"
+f.atoms();                      // ["p", "q", "r", "s"]</code></pre>
+<p>Every connective has several spellings, and they can be mixed.</p>
+<div class="tablewrap"><table class="ref">
+<tr><th>Connective</th><th>Accepted</th><th>Printed</th></tr>
+<tr><td>not</td><td><code>¬ ~ ! not</code></td><td>\(\lnot\)</td></tr>
+<tr><td>and</td><td><code>∧ &amp; &amp;&amp; /\ ^ and</code></td><td>\(\land\)</td></tr>
+<tr><td>or</td><td><code>∨ | || \/ or</code></td><td>\(\lor\)</td></tr>
+<tr><td>if … then</td><td><code>→ -&gt; =&gt; ⊃ implies</code></td><td>\(\to\)</td></tr>
+<tr><td>if and only if</td><td><code>↔ &lt;-&gt; &lt;=&gt; ≡ iff</code></td><td>\(\leftrightarrow\)</td></tr>
+<tr><td>exclusive or</td><td><code>⊕ xor</code></td><td>\(\oplus\)</td></tr>
+<tr><td>true, false</td><td><code>⊤ true 1</code>, <code>⊥ false 0 _|_</code></td><td>\(\top\), \(\bot\)</td></tr>
+</table></div>
+<p>An atom is a letter followed by letters, digits or underscores: <code>p</code>, <code>q2</code>, <code>rain</code>, <code>door_open</code>. Without brackets, \(\lnot\) binds tightest, then \(\land\), \(\oplus\), \(\lor\), \(\to\), \(\leftrightarrow\); \(\to\) groups to the right, so <code>p -&gt; q -&gt; r</code> is \(p \to (q \to r)\).</p>
+<p>A formula that cannot be read says where the trouble is:</p>
+<pre><code>parse("p &amp; (q | )");
+// LogicError: a formula was expected, but found ")" at position 10 in "p &amp; (q | )"</code></pre>
+
+<h2>Writing</h2>
+<p>Printing never relies on the reader knowing the precedence. Wherever two different connectives meet, the brackets are written; only a run of \(\land\) or of \(\lor\) is left bare.</p>
+<pre><code>String(parse("p &amp; q | r &amp; s"));              // "(p ∧ q) ∨ (r ∧ s)"
+String(parse("p &amp; q &amp; r"));                  // "p ∧ q ∧ r"
+f.toString({ style: "ascii" });              // "(~p &amp; q) -&gt; (r | s)": reads back with any keyboard
+f.toString({ style: "words" });              // "(not p and q) implies (r or s)"
+f.toTeX();                                   // "(\lnot p \land q) \to (r \lor s)"</code></pre>
+<p>Formulas can also be built in code. <code>and</code> and <code>or</code> take any number of parts, and text is parsed where a formula is expected.</p>
+<pre><code>import { atom, not, and, or, implies, iff, xor, TRUE, FALSE } from "@ratmath/logic";
+
+String(implies(and("p", "q", "r"), or(not("p"), iff("q", "r"))));   // "(p ∧ q ∧ r) → (¬p ∨ (q ↔ r))"
+and() === TRUE;                                                     // the empty conjunction is true</code></pre>
+
+<h2>Meaning</h2>
+<p>A <em>valuation</em> gives each atom a truth value, and the connectives pass values upward: \(A \to B\) is false only when \(A\) is true and \(B\) false; \(A \leftrightarrow B\) is true when the two agree; \(A \oplus B\) when they differ.</p>
+<pre><code>f.evaluate({ p: false, q: true, r: false, s: false });   // false: the left side holds and the right does not
+f.subformulas().map(String);
+// ["p", "¬p", "q", "¬p ∧ q", "r", "s", "r ∨ s", "(¬p ∧ q) → (r ∨ s)"]
+String(f.substitute({ p: "a &amp; b", s: FALSE }));           // "(¬(a ∧ b) ∧ q) → (r ∨ ⊥)"
+f.equals("~p &amp; q -&gt; r | s");                              // true: the same tree</code></pre>
+<p>Two formulas are <code>equals</code> when they are the same tree. Having the same truth table is a different question, answered by <a href="satisfiability.html"><code>equivalent</code></a>.</p>
+
+<h2>The functions</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Call</th><th>Returns</th></tr>
+<tr><td><code>parse(text)</code></td><td>The formula, or a <code>LogicError</code> with <code>position</code>.</td></tr>
+<tr><td><code>formula(x)</code>, <code>formulas(x)</code></td><td>A formula from a formula or text; a list from an array or from text with commas.</td></tr>
+<tr><td><code>atom not and or implies iff xor</code>, <code>TRUE</code>, <code>FALSE</code></td><td>Formulas built in code.</td></tr>
+<tr><td><code>f.kind</code>, <code>f.name</code>, <code>f.arg</code>, <code>f.left</code>, <code>f.right</code>, <code>f.parts</code></td><td>The shape of the tree.</td></tr>
+<tr><td><code>f.atoms()</code>, <code>f.subformulas()</code>, <code>f.size</code>, <code>f.depth</code></td><td>What it is made of.</td></tr>
+<tr><td><code>f.evaluate(valuation)</code></td><td>Its truth value.</td></tr>
+<tr><td><code>f.substitute(map)</code>, <code>f.equals(g)</code></td><td>Replacing atoms; comparing trees.</td></tr>
+<tr><td><code>f.toString({ style })</code>, <code>f.toTeX()</code></td><td>Text in <code>"unicode"</code>, <code>"ascii"</code>, <code>"words"</code> or <code>"tex"</code>.</td></tr>
+</table></div>
+<template data-runbox>
+// A sentence, taken apart.
+// "If it rains and I have no umbrella, then I get wet or I stay in."
+const f = parse("rain &amp; ~umbrella -&gt; wet | stay_in");
+PRINT("formula:    ", f);
+PRINT("in ASCII:   ", f.toString({ style: "ascii" }));
+PRINT("in words:   ", f.toString({ style: "words" }));
+PRINT("atoms:      ", f.atoms().join(", "));
+PRINT("size, depth:", f.size, f.depth);
+for (const part of f.subformulas()) if (!part.isAtom) PRINT("  part:", part);
+
+// It rains, no umbrella, and yet dry and out of doors: the one way to make it false.
+const world = { rain: true, umbrella: false, wet: false, stay_in: false };
+PRINT("in that world it is", f.evaluate(world));
+// The same shape with other content: substitution keeps the tree and swaps the leaves.
+String(f.substitute({ rain: "p", umbrella: "q", wet: "r", stay_in: "s" }))
+</template>
+</article>
+</main>
+</div>
+</body>
+</html>

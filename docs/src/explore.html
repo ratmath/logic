@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Logic Explorer</title>
-<meta name="description" content="Try @ratmath/logic without writing a program.">
+<title>Explore · RatMath Logic</title>
+<meta name="description" content="Try @ratmath/logic in the page: type a formula for its table and forms, test an argument four ways, and check a natural deduction proof with hints.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
@@ -18,20 +18,192 @@
 <article>
 <div class="eyebrow">Explore</div>
 <h1>Explore</h1>
-<p class="lede">This page will be a calculator for everything in the library: type an expression, see an exact answer, click an example to change it.</p>
-<p class="notice"><strong>Planned, not built yet.</strong> This site is the frame the package will grow into. The full plan is in the <a href="https://github.com/ratmath/ratmath/blob/main/docs/design/library-roadmap.md#8-a-logic-package-ratmathlogic">library roadmap</a>, and the <a href="https://ratmath.com/shelf/">RatMath Shelf</a> page lists what exists across all the libraries.</p>
-<p>There is nothing to explore yet. The first phase is: <strong>Propositional formulas, tables, normal forms, satisfiability, simplification</strong>. When it is built its operations appear here.</p>
-<p>In the meantime the code box below runs JavaScript with <code>@ratmath/core</code> in scope.</p>
+<p class="lede">Type a formula to see its table and its forms. Test an argument and read the evidence in any of four proof systems. Then write a proof yourself, with the checker and one-line hints beside you.</p>
+<p>Type connectives as <code>~</code>, <code>&amp;</code>, <code>|</code>, <code>-&gt;</code>, <code>&lt;-&gt;</code>, or as words.</p>
+
+<h2>A formula</h2>
+<div class="demo">
+<div class="demo-row"><input id="ex-f" class="text grow" aria-label="Formula" value="(p -> q) & (~p -> r)" spellcheck="false"></div>
+<div id="ex-fout"></div>
+</div>
+
+<h2>An argument</h2>
+<div class="demo">
+<div class="demo-row"><label for="ex-prem">Premises</label><input id="ex-prem" class="text grow" value="p | q, p -> r, q -> r" spellcheck="false"></div>
+<div class="demo-row"><label for="ex-conc">Conclusion</label><input id="ex-conc" class="text grow" value="r" spellcheck="false">
+<label for="ex-logic">Logic</label><select id="ex-logic"><option>classical</option><option>intuitionistic</option></select>
+<label for="ex-sys">Show</label><select id="ex-sys"><option value="nd">natural deduction</option><option value="seq">sequent derivation</option><option value="tree">truth tree</option><option value="res">resolution</option></select></div>
+<div id="ex-aout"></div>
+</div>
+<p>Try the conclusion <code>p</code> for a countermodel. Try no premises and the conclusion <code>p | ~p</code> in each logic.</p>
+
+<h2>Your own proof</h2>
+<div class="demo">
+<div class="demo-row"><label for="ex-goalp">Premises</label><input id="ex-goalp" class="text grow" value="p -> q, q -> r" spellcheck="false"><label for="ex-goal">Conclusion</label><input id="ex-goal" class="text grow" value="p -> r" spellcheck="false"></div>
+<textarea id="ex-proof" class="text" rows="9" aria-label="Proof" spellcheck="false">1. p -> q    premise
+2. q -> r    premise
+3. | p       assumption
+</textarea>
+<div class="demo-row"><label for="ex-rules">Rules</label><select id="ex-rules"><option value="classical">classical</option><option value="intuitionistic">intuitionistic</option><option value="derived">classical with derived rules</option></select>
+<button class="chipbtn" id="ex-hint">hint: add the next line</button><button class="chipbtn" id="ex-tidy">tidy the layout</button><button class="chipbtn" id="ex-clear">start over</button></div>
+<div id="ex-pout"></div>
+</div>
+<p>One line holds a number, a bar <code>|</code> for each open subproof, the formula, then the reason: <code>premise</code>, <code>assumption</code>, or a rule and the lines it uses, such as <code>->E 1, 3</code> or <code>->I 3-5</code>.</p>
 <template data-runbox>
-// Core's exact numbers are available here.
-const third = new Rational(1, 3);
-PRINT("1/3 + 1/6 =", third.add(new Rational(1, 6)).toString());
-PRINT("(2/3)^10 =", new Rational(2, 3).pow(10).toString());
-PRINT("0.1 + 0.2 in floating point:", 0.1 + 0.2, "  exactly:", new Rational(1, 10).add(new Rational(2, 10)).toString());
-plan[0].contents
+// The page above, as code.
+const f = parse("(p -&gt; q) &amp; (~p -&gt; r)");
+PRINT(truthTable(f).toString());
+PRINT("shortest:", String(simplify(f)));
+
+const argument = ["p | q, p -&gt; r, q -&gt; r", "r"];
+PRINT("\n" + prove(...argument).proof);
+
+const mine = `1. p -&gt; q    premise
+2. q -&gt; r    premise
+3. | p       assumption`;
+hint(mine, { conclusion: "p -&gt; r" }).text
 </template>
 </article>
 </main>
 </div>
+<script type="module">
+import { A as S, h } from "./assets/site.js";
+const $ = (id) => document.getElementById(id);
+const pre = (text) => h("dd", { style: "white-space: pre; overflow-x: auto" }, String(text));
+const row = (label, f, block = false) => {
+  let text;
+  let bad = false;
+  try {
+    text = f();
+  } catch (e) {
+    text = e.message;
+    bad = true;
+  }
+  const dd = block ? pre(text) : h("dd", {}, String(text));
+  if (bad) dd.style.color = "var(--muted)";
+  return [h("dt", {}, label), dd];
+};
+const fail = (out, e) => out.replaceChildren(h("div", { class: "out err" }, e.message));
+const showModel = (m) => Object.entries(m).map(([k, v]) => `${k} ${v ? "true" : "false"}`).join(", ") || "any valuation";
+
+function formulaPanel() {
+  const out = $("ex-fout");
+  try {
+    const f = S.parse($("ex-f").value);
+    const n = f.atoms().length;
+    const c = S.classify(f);
+    const rows = [
+      row("formula", () => String(f)),
+      row("in TeX", () => f.toTeX()),
+      row("kind", () => `${c.kind}: true in ${S.countModels(f)} of ${2 ** n} rows`),
+      row("negation normal form", () => String(S.nnf(f))),
+      row("conjunctive form", () => String(S.cnf(f))),
+      row("disjunctive form", () => String(S.dnf(f))),
+      row("shortest form", () => String(S.simplify(f))),
+    ];
+    if (n <= 5) rows.push(row("table", () => S.truthTable(f).toString(), true));
+    else rows.push(row("table", () => `${2 ** n} rows: too long to show here`));
+    out.replaceChildren(h("dl", { class: "kv out" }, ...rows));
+  } catch (e) {
+    fail(out, e);
+  }
+}
+
+function argumentPanel() {
+  const out = $("ex-aout");
+  try {
+    const ps = S.formulas($("ex-prem").value);
+    const c = S.parse($("ex-conc").value);
+    const logic = $("ex-logic").value;
+    const sys = $("ex-sys").value;
+    const rows = [row("argument", () => `${ps.join(", ")} ⊢ ${c}`)];
+    const truth = S.entails(ps, c);
+    if (truth.status === "invalid") {
+      rows.push(row("verdict", () => "invalid: the premises can be true and the conclusion false"));
+      rows.push(row("countermodel", () => showModel(truth.countermodel)));
+      if (sys === "tree") rows.push(row("truth tree", () => S.tableauProof(ps, c).tableau, true));
+    } else if (truth.status === "unresolved") {
+      rows.push(row("verdict", () => `unresolved: ${truth.reason}`));
+    } else {
+      const seq = S.proveSequent(S.sequent(ps, [c]), { logic });
+      if (seq.status === "unprovable") {
+        rows.push(row("verdict", () => "valid classically, but not provable intuitionistically"));
+        rows.push(row("Kripke countermodel", () => seq.kripke, true));
+      } else if (seq.status === "unresolved") {
+        rows.push(row("verdict", () => `unresolved: ${seq.reason}`));
+      } else {
+        rows.push(row("verdict", () => `valid${logic === "intuitionistic" ? ", and provable intuitionistically" : ""}`));
+        if (sys === "nd") rows.push(row("proof", () => {
+          const p = S.prove(ps, c, { logic });
+          return p.status === "proved" ? p.proof : `${p.status}: ${p.reason ?? ""}`;
+        }, true));
+        if (sys === "seq") rows.push(row("derivation", () => seq.derivation, true));
+        if (sys === "tree") rows.push(row("truth tree (classical)", () => S.tableauProof(ps, c).tableau, true));
+        if (sys === "res") rows.push(row("refutation (classical)", () => truth.refutation, true));
+      }
+    }
+    out.replaceChildren(h("dl", { class: "kv out" }, ...rows));
+  } catch (e) {
+    fail(out, e);
+  }
+}
+
+const goalOptions = () => {
+  const options = { rules: S.rules[$("ex-rules").value], conclusion: $("ex-goal").value };
+  if ($("ex-goalp").value.trim()) options.premises = $("ex-goalp").value;
+  else options.premises = [];
+  return options;
+};
+function proofPanel(note) {
+  const out = $("ex-pout");
+  try {
+    const text = $("ex-proof").value;
+    const options = goalOptions();
+    if (!text.trim()) {
+      out.replaceChildren(h("div", { class: "out" }, "Nothing written yet. Start with the premises, or ask for a hint."));
+      return;
+    }
+    const r = S.checkProof(text, options);
+    const rows = [];
+    if (r.status === "proof") rows.push(row("checker", () => `a complete proof of ${r.proves}`));
+    else if (r.status === "incomplete") rows.push(row("checker", () => `every line checks so far (${r.lines} lines); the conclusion is not reached yet`));
+    else for (const e of r.errors) rows.push(row(`line ${e.line}`, () => e.message.replace(/^line \d+: /, "")));
+    if (note) rows.push(row("hint", () => note));
+    out.replaceChildren(h("dl", { class: "kv out" }, ...rows));
+  } catch (e) {
+    fail(out, e);
+  }
+}
+$("ex-hint").addEventListener("click", () => {
+  try {
+    const area = $("ex-proof");
+    const got = S.hint(area.value, goalOptions());
+    if (got.status === "hint") {
+      area.value = `${area.value.replace(/\s+$/, "")}${area.value.trim() ? "\n" : ""}${got.text.replace(/│/g, "|")}\n`;
+      proofPanel(`added line ${got.line.n}, working toward ${got.goal}`);
+    } else proofPanel(got.message ?? got.reason ?? got.status);
+  } catch (e) {
+    fail($("ex-pout"), e);
+  }
+});
+$("ex-tidy").addEventListener("click", () => {
+  try {
+    $("ex-proof").value = `${S.parseProof($("ex-proof").value)}\n`;
+    proofPanel();
+  } catch (e) {
+    fail($("ex-pout"), e);
+  }
+});
+$("ex-clear").addEventListener("click", () => {
+  $("ex-proof").value = "";
+  proofPanel();
+});
+$("ex-f").addEventListener("input", formulaPanel);
+for (const id of ["ex-prem", "ex-conc", "ex-logic", "ex-sys"]) $(id).addEventListener("input", argumentPanel);
+for (const id of ["ex-proof", "ex-goalp", "ex-goal", "ex-rules"]) $(id).addEventListener("input", () => proofPanel());
+formulaPanel();
+argumentPanel();
+proofPanel();
+</script>
 </body>
 </html>

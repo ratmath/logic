@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Normal forms · RatMath Logic</title>
+<meta name="description" content="Normal forms in @ratmath/logic: negation normal form, conjunctive and disjunctive forms by distribution or from the table, and the Tseitin form.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script type="module" src="assets/site.js"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Normal forms</h1>
+<p class="lede">Every formula can be rewritten into a few standard shapes. Negation normal form pushes \(\lnot\) down to the atoms; conjunctive and disjunctive forms flatten what is left into two levels. Solvers, circuits and resolution proofs all start from one of these.</p>
+
+<h2>Negation normal form</h2>
+<p>Write \(\to\), \(\leftrightarrow\) and \(\oplus\) in terms of \(\land\), \(\lor\), \(\lnot\); then move each \(\lnot\) inward with De Morgan's laws, \(\lnot(A \land B) \equiv \lnot A \lor \lnot B\) and \(\lnot(A \lor B) \equiv \lnot A \land \lnot B\), cancelling double negations. What remains has \(\lnot\) only on atoms.</p>
+<pre><code>import { nnf, cnf, dnf, clauses, tseitin, isCnf } from "@ratmath/logic";
+
+String(nnf("~(p &amp; (q | ~r))"));   // "¬p ∨ (¬q ∧ r)"
+String(nnf("~(p -&gt; q)"));         // "p ∧ ¬q"
+String(nnf("p &lt;-&gt; q"));           // "(¬p ∨ q) ∧ (p ∨ ¬q)"</code></pre>
+
+<h2>Conjunctive and disjunctive forms</h2>
+<p>A <em>literal</em> is an atom or its negation. A formula in <em>conjunctive normal form</em> (CNF) is an "and" of <em>clauses</em>, each an "or" of literals; in <em>disjunctive normal form</em> (DNF) it is an "or" of terms, each an "and" of literals. From negation normal form, CNF comes by distributing \(\lor\) over \(\land\): \(A \lor (B \land C) \equiv (A \lor B) \land (A \lor C)\). DNF is the mirror image.</p>
+<pre><code>String(cnf("(p &amp; q) | r"));          // "(p ∨ r) ∧ (q ∨ r)"
+String(dnf("(p | q) &amp; r"));          // "(p ∧ r) ∨ (q ∧ r)"
+String(cnf("p -&gt; (q &amp; r)"));         // "(¬p ∨ q) ∧ (¬p ∨ r)"
+String(cnf("p | ~p"));               // "⊤": a clause with p and ¬p is always true and is dropped
+clauses("(p -&gt; q) &amp; p &amp; ~q");        // [["p"], ["¬p", "q"], ["¬q"]]: the same thing as lists</code></pre>
+<p>The result is tidied: a clause that contains both a literal and its negation is dropped, and so is a clause that contains another clause, since the smaller one already implies it. Neither changes the truth table.</p>
+<p>With <code>method: "table"</code> the form is read off the truth table instead: one clause for each false row, or one term for each true row. This <em>full</em> form is unique for a given table, which makes it a way to compare formulas, but it is usually much longer.</p>
+<pre><code>String(dnf("p -&gt; q", { method: "table" }));   // "(¬p ∧ ¬q) ∨ (¬p ∧ q) ∨ (p ∧ q)"
+String(dnf("p -&gt; q"));                         // "¬p ∨ q"</code></pre>
+
+<h2>When distribution explodes</h2>
+<p>Distribution can multiply the size of a formula at every step. \((a_1 \land b_1) \lor \dots \lor (a_n \land b_n)\) has \(2n\) literals, and its CNF has \(2^n\) clauses: one for each way of picking \(a_i\) or \(b_i\) from every part. <code>cnf</code> refuses when the count passes its limit, and says what to use instead.</p>
+<p>The <em>Tseitin form</em> avoids the explosion by giving each compound subformula a new atom. For \(x\) standing for \(A \land B\), three short clauses say \(x \leftrightarrow (A \land B)\):</p>
+<p>\[ (\lnot x \lor A) \land (\lnot x \lor B) \land (x \lor \lnot A \lor \lnot B). \]</p>
+<p>One such group for each connective, and one clause asserting the atom for the whole formula. The result grows in step with the formula. It is not <em>equivalent</em> to the original, since it has more atoms, but it is satisfiable exactly when the original is, and a model of it, restricted to the original atoms, is a model of the original. That is all a solver needs.</p>
+<pre><code>const t = tseitin("(p &amp; q) | ~r");
+t.definitions.map((d) =&gt; `${d.atom} stands for ${d.formula}`);
+// ["_1 stands for p ∧ q", "_2 stands for (p ∧ q) ∨ ¬r"]
+t.clauses;
+// [["p", "¬_1"], ["q", "¬_1"], ["¬p", "¬q", "_1"], ["_1", "¬_2"], ["¬r", "¬_2"], ["¬_1", "r", "_2"], ["_2"]]</code></pre>
+
+<h2>The functions</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Call</th><th>Returns</th></tr>
+<tr><td><code>nnf(f)</code></td><td>Negation normal form.</td></tr>
+<tr><td><code>cnf(f, { method })</code></td><td>Conjunctive form. <code>method</code>: <code>"distribute"</code> (default), <code>"table"</code> or <code>"tseitin"</code>.</td></tr>
+<tr><td><code>dnf(f, { method })</code></td><td>Disjunctive form. <code>method</code>: <code>"distribute"</code> (default) or <code>"table"</code>.</td></tr>
+<tr><td><code>clauses(f, { method })</code></td><td>The clauses as lists of literals, <code>"p"</code> or <code>"¬p"</code>.</td></tr>
+<tr><td><code>tseitin(f)</code></td><td><code>{ formula, clauses, definitions, atoms }</code>.</td></tr>
+<tr><td><code>foldConstants(f)</code></td><td>The formula with ⊤ and ⊥ absorbed: the result is ⊤, ⊥, or free of both.</td></tr>
+<tr><td><code>isNnf(f)</code>, <code>isCnf(f)</code>, <code>isDnf(f)</code></td><td>Whether a formula already has the shape.</td></tr>
+</table></div>
+<template data-runbox>
+// One formula, every form.
+const f = parse("(p -&gt; q) &lt;-&gt; (~q -&gt; ~p | r)");
+PRINT("formula:", f);
+PRINT("nnf:    ", nnf(f));
+PRINT("cnf:    ", cnf(f));
+PRINT("dnf:    ", dnf(f));
+PRINT("the dnf read from the table has", minterms(f).length, "terms, one for each true row");
+
+// The explosion, and the way round it.
+for (const n of [4, 8, 12]) {
+  const parts = Array.from({ length: n }, (_, i) =&gt; `(a${i} &amp; b${i})`).join(" | ");
+  const direct = n &lt;= 8 ? `gives ${clauses(parts).length} clauses` : `would give ${2 ** n} and is refused`;
+  PRINT(`n = ${String(n).padStart(2)}: distribution ${direct}; Tseitin gives ${tseitin(parts).clauses.length}`);
+}
+
+// What the new atoms mean:
+tseitin("(p &amp; q) | ~r").definitions.map((d) =&gt; `${d.atom} = ${d.formula}`)
+</template>
+</article>
+</main>
+</div>
+</body>
+</html>

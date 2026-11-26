@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RatMath Logic</title>
-<meta name="description" content="Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability.">
+<meta name="description" content="Propositional logic for RatMath: truth tables, normal forms, satisfiability with evidence, simplification, and proof checkers with proof search and hints.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
@@ -18,26 +18,39 @@
 <article>
 <div class="eyebrow">@ratmath/logic</div>
 <h1>Logic where every verdict comes with its evidence</h1>
-<p class="lede">Formal logic you can compute with. A formula is valid with a proof, invalid with a countermodel, or reported as unresolved; proofs written by hand are checked line by line, with hints when a step is missing.</p>
-<p class="notice"><strong>Planned, not built yet.</strong> This site is the frame the package will grow into. The full plan is in the <a href="https://github.com/ratmath/ratmath/blob/main/docs/design/library-roadmap.md#8-a-logic-package-ratmathlogic">library roadmap</a>, and the <a href="https://ratmath.com/shelf/">RatMath Shelf</a> page lists what exists across all the libraries.</p>
+<p class="lede">Formal logic you can compute with. A formula is valid with a proof you can replay, invalid with a countermodel that has been checked, or reported as unresolved within a stated budget. Proofs written by hand are checked line by line, and a hint gives the next line and no more.</p>
 
-<h2>What it will cover</h2>
-<ul>
-  <li>Propositional formulas: truth tables, normal forms, satisfiability, simplification.</li>
-  <li>Proof checkers for the common rule sets (natural deduction, sequents, axioms), with proof search and hints.</li>
-  <li>Predicate logic: syntax, finite models, search for countermodels, the quantifier rules.</li>
-  <li>Circuits, Karnaugh maps and syllogisms.</li>
-  <li>Modal logic with Kripke models.</li>
-  <li>Ordinals, cardinals, Peano arithmetic and Gödel numbering.</li>
-  <li>Automata, grammars and Turing machines.</li>
-</ul>
+<h2>What is here</h2>
+<p>Propositional logic, in two parts: what a formula <em>means</em> (tables, normal forms, satisfiability, shortest forms) and how a formula is <em>proved</em> (four proof systems, each with a checker). Predicate logic, modal logic and computability are planned and listed at the bottom of this page.</p>
+<div class="cards" id="cards"></div>
 
-<h2>The order of work</h2>
-<p>The phases below come from the roadmap. Sizes are rough estimates in lines of source.</p>
+<h2>A first program</h2>
+<pre><code>import { parse, truthTable, valid, entails, simplify, checkProof, prove, hint } from "@ratmath/logic";
+
+String(parse("~p &amp; q -&gt; (r | s)"));      // "(¬p ∧ q) → (r ∨ s)": typed on any keyboard, printed properly
+
+valid("((p -&gt; q) &amp; (q -&gt; r)) -&gt; (p -&gt; r)").status;   // "valid", and .refutation is the proof
+entails("p -&gt; q, q", "p").countermodel;              // { p: false, q: true }: the argument fails here
+String(simplify("(a &amp; b) | (~a &amp; c) | (b &amp; c)"));    // "(a ∧ b) ∨ (¬a ∧ c)"
+
+checkProof(`1. p -&gt; q    premise
+2. q         premise
+3. p         -&gt;E 1, 2`).errors[0].message;
+// 'line 3: to give "p", →E needs a line reading "φ → p"; line 1 reads "p → q"'
+
+String(prove("p -&gt; q", "~q -&gt; ~p").proof);           // a seven-line proof, written for you</code></pre>
+
+<h2>Three rules the library keeps</h2>
+<p><strong>No bare verdicts.</strong> "Valid" comes with a proof and "invalid" with a countermodel, and both are checked by code much simpler than the code that found them. A search that runs out of its budget answers <code>"unresolved"</code>: it never guesses. See <a href="satisfiability.html">Satisfiability and validity</a>.</p>
+<p><strong>Rules are data.</strong> A natural deduction rule is a name and a pattern such as "from \(A \to B\) and \(A\), infer \(B\)". The checker reads the rule set it is given, so a course can use its own rules, and classical and intuitionistic logic are two rule sets that are never mixed. See <a href="natural-deduction.html">Natural deduction</a>.</p>
+<p><strong>Mistakes are explained, hints are small.</strong> A proof that fails to check names the line, the rule, and what the rule needed and did not find. A hint is the next line of a proof that continues from what is already written. See <a href="proof-search.html">Proof search and hints</a>.</p>
+
+<h2>What is planned</h2>
+<p>From the <a href="https://github.com/ratmath/ratmath/blob/main/docs/design/library-roadmap.md#8-a-logic-package-ratmathlogic">library roadmap</a>. Sizes are rough estimates in lines of source.</p>
 <div class="tablewrap"><table class="plan">
 <tr><th>Phase</th><th>Contents</th><th>Estimate</th></tr>
-<tr><td>1</td><td>Propositional formulas, tables, normal forms, satisfiability, simplification</td><td>900</td></tr>
-<tr><td>2</td><td>Proof checkers, rule sets, proof search and hints</td><td>1,200</td></tr>
+<tr><td>1</td><td>Propositional formulas, tables, normal forms, satisfiability, simplification</td><td>built</td></tr>
+<tr><td>2</td><td>Proof checkers, rule sets, proof search and hints</td><td>built</td></tr>
 <tr><td>3</td><td>Predicate logic: syntax, finite models, model search, quantifier rules</td><td>1,100</td></tr>
 <tr><td>4</td><td>Circuits, Karnaugh maps, syllogisms</td><td>400</td></tr>
 <tr><td>5</td><td>Modal logic</td><td>500</td></tr>
@@ -45,29 +58,20 @@
 <tr><td>7</td><td>Automata, grammars, Turing machines</td><td>1,000</td></tr>
 <tr><td>8</td><td>Pictures</td><td>500 in graphics</td></tr>
 </table></div>
-<p>It will build on: Core only. The discrete package will use it for Boolean functions.</p>
-
-<h2>How the docs will be laid out</h2>
-<p>Like every library on the Shelf: this overview, an <a href="explore.html">Explore</a> page for trying things without writing code, a <a href="reference.html">Reference</a> listing every function, and one page per topic that explains the usage and the mathematics. Every page ends with a box of code you can edit and run.</p>
-<div class="cards" id="cards"></div>
-
-<h2>Until then</h2>
-<p>The box below already runs, with <code>@ratmath/core</code> in scope. It shows the kind of exactness the package is built on, done by hand.</p>
+<p>What is built depends on no other library. The discrete library will use it for Boolean functions.</p>
 <template data-runbox>
-// A truth table by brute force: is hypothetical syllogism a tautology?
-const implies = (a, b) =&gt; !a || b;
-const formula = (p, q, r) =&gt; implies(implies(p, q) &amp;&amp; implies(q, r), implies(p, r));
-let always = true;
-for (const p of [true, false]) for (const q of [true, false]) for (const r of [true, false]) {
-  const v = formula(p, q, r);
-  always &amp;&amp;= v;
-  PRINT([p, q, r].map((x) =&gt; (x ? "T" : "F")).join(" "), " → ", v ? "T" : "F");
-}
-PRINT("((p → q) ∧ (q → r)) → (p → r) is", always ? "valid" : "not valid");
-// and one that is not: affirming the consequent, with its countermodel
-const bad = (p, q) =&gt; implies(implies(p, q) &amp;&amp; q, p);
-PRINT("countermodel to ((p → q) ∧ q) → p:", JSON.stringify([[true, true], [true, false], [false, true], [false, false]].find(([p, q]) =&gt; !bad(p, q))));
-plan.map((p) =&gt; `${p.phase}. ${p.contents}`)
+// Is this argument valid? Ask four ways, and look at the evidence each gives.
+const premises = "p -&gt; q, q -&gt; r";
+const conclusion = "p -&gt; r";
+
+PRINT("by the solver:  ", entails(premises, conclusion).status);
+PRINT("by a truth tree:", tableauProof(premises, conclusion).status);
+PRINT("by sequents:    ", proveSequent(premises + " |- " + conclusion).status);
+const found = prove(premises, conclusion);
+PRINT("by natural deduction:\n" + found.proof);
+
+// Change the conclusion to "r -&gt; p" and every method returns the same countermodel instead.
+entails(premises, "r -&gt; p").countermodel
 </template>
 </article>
 </main>

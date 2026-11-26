@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Formulas · RatMath Logic</title>
+<meta property="og:title" content="Formulas · RatMath Logic">
+<meta property="og:description" content="Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ratmath.com/logic/formulas.html">
+<meta name="description" content="Propositional formulas in @ratmath/logic: a parser for the notations people type, printing in Unicode, ASCII and TeX, evaluation and substitution.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://ratmath.com/assets/katex/0.19.1/katex.min.css">
+<link rel="stylesheet" href="assets/style.css?v=c351dc7788">
+<script type="module" src="assets/site.js?v=c351dc7788"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Formulas</h1>
+<p class="lede">A formula is a tree: atoms at the leaves, connectives above them. <code>parse</code> reads one from text typed on any keyboard, and a <code>Formula</code> prints itself back, lists its atoms and parts, and takes a truth value under a valuation.</p>
+
+<h2>Reading</h2>
+<pre><code>import { parse, formula } from "@ratmath/logic";
+
+const f = parse("~p &amp; q -&gt; (r | s)");
+String(f);                      // "(¬p ∧ q) → (r ∨ s)"
+f.kind;                         // "imp"
+String(f.left);                 // "¬p ∧ q"
+f.atoms();                      // ["p", "q", "r", "s"]</code></pre>
+<p>Every connective has several spellings, and they can be mixed.</p>
+<div class="tablewrap"><table class="ref">
+<tr><th>Connective</th><th>Accepted</th><th>Printed</th></tr>
+<tr><td>not</td><td><code>¬ ~ ! not</code></td><td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">¬</mi></mrow><annotation encoding="application/x-tex">\lnot</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord">¬</span></span></span></span></td></tr>
+<tr><td>and</td><td><code>∧ &amp; &amp;&amp; /\ ^ and</code></td><td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∧</mo></mrow><annotation encoding="application/x-tex">\land</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.5556em;"></span><span class="mord">∧</span></span></span></span></td></tr>
+<tr><td>or</td><td><code>∨ | || \/ or</code></td><td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∨</mo></mrow><annotation encoding="application/x-tex">\lor</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.5556em;"></span><span class="mord">∨</span></span></span></span></td></tr>
+<tr><td>if … then</td><td><code>→ -&gt; =&gt; ⊃ implies</code></td><td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>→</mo></mrow><annotation encoding="application/x-tex">\to</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.3669em;"></span><span class="mrel">→</span></span></span></span></td></tr>
+<tr><td>if and only if</td><td><code>↔ &lt;-&gt; &lt;=&gt; ≡ iff</code></td><td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>↔</mo></mrow><annotation encoding="application/x-tex">\leftrightarrow</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.3669em;"></span><span class="mrel">↔</span></span></span></span></td></tr>
+<tr><td>exclusive or</td><td><code>⊕ xor</code></td><td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>⊕</mo></mrow><annotation encoding="application/x-tex">\oplus</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6667em;vertical-align:-0.0833em;"></span><span class="mord">⊕</span></span></span></span></td></tr>
+<tr><td>true, false</td><td><code>⊤ true 1</code>, <code>⊥ false 0 _|_</code></td><td><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">⊤</mi></mrow><annotation encoding="application/x-tex">\top</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord">⊤</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">⊥</mi></mrow><annotation encoding="application/x-tex">\bot</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord">⊥</span></span></span></span></td></tr>
+</table></div>
+<p>An atom is a letter followed by letters, digits or underscores: <code>p</code>, <code>q2</code>, <code>rain</code>, <code>door_open</code>. Without brackets, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">¬</mi></mrow><annotation encoding="application/x-tex">\lnot</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord">¬</span></span></span></span> binds tightest, then <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∧</mo></mrow><annotation encoding="application/x-tex">\land</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.5556em;"></span><span class="mord">∧</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>⊕</mo></mrow><annotation encoding="application/x-tex">\oplus</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6667em;vertical-align:-0.0833em;"></span><span class="mord">⊕</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∨</mo></mrow><annotation encoding="application/x-tex">\lor</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.5556em;"></span><span class="mord">∨</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>→</mo></mrow><annotation encoding="application/x-tex">\to</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.3669em;"></span><span class="mrel">→</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>↔</mo></mrow><annotation encoding="application/x-tex">\leftrightarrow</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.3669em;"></span><span class="mrel">↔</span></span></span></span>; <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>→</mo></mrow><annotation encoding="application/x-tex">\to</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.3669em;"></span><span class="mrel">→</span></span></span></span> groups to the right, so <code>p -&gt; q -&gt; r</code> is <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>→</mo><mo stretchy="false">(</mo><mi>q</mi><mo>→</mo><mi>r</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">p \to (q \to r)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mclose">)</span></span></span></span>.</p>
+<p>A formula that cannot be read says where the trouble is:</p>
+<pre><code>parse("p &amp; (q | )");
+// LogicError: a formula was expected, but found ")" at position 10 in "p &amp; (q | )"</code></pre>
+
+<h2>Writing</h2>
+<p>Printing never relies on the reader knowing the precedence. Wherever two different connectives meet, the brackets are written; only a run of <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∧</mo></mrow><annotation encoding="application/x-tex">\land</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.5556em;"></span><span class="mord">∧</span></span></span></span> or of <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∨</mo></mrow><annotation encoding="application/x-tex">\lor</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.5556em;"></span><span class="mord">∨</span></span></span></span> is left bare.</p>
+<pre><code>String(parse("p &amp; q | r &amp; s"));              // "(p ∧ q) ∨ (r ∧ s)"
+String(parse("p &amp; q &amp; r"));                  // "p ∧ q ∧ r"
+f.toString({ style: "ascii" });              // "(~p &amp; q) -&gt; (r | s)": reads back with any keyboard
+f.toString({ style: "words" });              // "(not p and q) implies (r or s)"
+f.toTeX();                                   // "(\lnot p \land q) \to (r \lor s)"</code></pre>
+<p>Formulas can also be built in code. <code>and</code> and <code>or</code> take any number of parts, and text is parsed where a formula is expected.</p>
+<pre><code>import { atom, not, and, or, implies, iff, xor, TRUE, FALSE } from "@ratmath/logic";
+
+String(implies(and("p", "q", "r"), or(not("p"), iff("q", "r"))));   // "(p ∧ q ∧ r) → (¬p ∨ (q ↔ r))"
+and() === TRUE;                                                     // the empty conjunction is true</code></pre>
+
+<h2>Meaning</h2>
+<p>A <em>valuation</em> gives each atom a truth value, and the connectives pass values upward: <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>→</mo><mi>B</mi></mrow><annotation encoding="application/x-tex">A \to B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span> is false only when <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi></mrow><annotation encoding="application/x-tex">A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span></span></span></span> is true and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span> false; <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>↔</mo><mi>B</mi></mrow><annotation encoding="application/x-tex">A \leftrightarrow B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">↔</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span> is true when the two agree; <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo>⊕</mo><mi>B</mi></mrow><annotation encoding="application/x-tex">A \oplus B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.7667em;vertical-align:-0.0833em;"></span><span class="mord mathnormal">A</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">⊕</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span> when they differ.</p>
+<pre><code>f.evaluate({ p: false, q: true, r: false, s: false });   // false: the left side holds and the right does not
+f.subformulas().map(String);
+// ["p", "¬p", "q", "¬p ∧ q", "r", "s", "r ∨ s", "(¬p ∧ q) → (r ∨ s)"]
+String(f.substitute({ p: "a &amp; b", s: FALSE }));           // "(¬(a ∧ b) ∧ q) → (r ∨ ⊥)"
+f.equals("~p &amp; q -&gt; r | s");                              // true: the same tree</code></pre>
+<p>Two formulas are <code>equals</code> when they are the same tree. Having the same truth table is a different question, answered by <a href="satisfiability.html"><code>equivalent</code></a>.</p>
+
+<h2>The functions</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Call</th><th>Returns</th></tr>
+<tr><td><code>parse(text)</code></td><td>The formula, or a <code>LogicError</code> with <code>position</code>.</td></tr>
+<tr><td><code>formula(x)</code>, <code>formulas(x)</code></td><td>A formula from a formula or text; a list from an array or from text with commas.</td></tr>
+<tr><td><code>atom not and or implies iff xor</code>, <code>TRUE</code>, <code>FALSE</code></td><td>Formulas built in code.</td></tr>
+<tr><td><code>f.kind</code>, <code>f.name</code>, <code>f.arg</code>, <code>f.left</code>, <code>f.right</code>, <code>f.parts</code></td><td>The shape of the tree.</td></tr>
+<tr><td><code>f.atoms()</code>, <code>f.subformulas()</code>, <code>f.size</code>, <code>f.depth</code></td><td>What it is made of.</td></tr>
+<tr><td><code>f.evaluate(valuation)</code></td><td>Its truth value.</td></tr>
+<tr><td><code>f.substitute(map)</code>, <code>f.equals(g)</code></td><td>Replacing atoms; comparing trees.</td></tr>
+<tr><td><code>f.toString({ style })</code>, <code>f.toTeX()</code></td><td>Text in <code>"unicode"</code>, <code>"ascii"</code>, <code>"words"</code> or <code>"tex"</code>.</td></tr>
+</table></div>
+<section class="runbox" aria-label="Runnable code">
+  <div class="runbox-head"><strong>Try it</strong><span>Edit the code and run it with <code>@ratmath/logic</code> and Core's <code>Rational</code> in scope. The last line's value is shown; <code>PRINT(…)</code> adds lines, <code>TEX(…)</code> typesets math.</span></div>
+  <textarea spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code">// A sentence, taken apart.
+// "If it rains and I have no umbrella, then I get wet or I stay in."
+const f = parse("rain &amp; ~umbrella -&gt; wet | stay_in");
+PRINT("formula:    ", f);
+PRINT("in ASCII:   ", f.toString({ style: "ascii" }));
+PRINT("in words:   ", f.toString({ style: "words" }));
+PRINT("atoms:      ", f.atoms().join(", "));
+PRINT("size, depth:", f.size, f.depth);
+for (const part of f.subformulas()) if (!part.isAtom) PRINT("  part:", part);
+
+// It rains, no umbrella, and yet dry and out of doors: the one way to make it false.
+const world = { rain: true, umbrella: false, wet: false, stay_in: false };
+PRINT("in that world it is", f.evaluate(world));
+// The same shape with other content: substitution keeps the tree and swaps the leaves.
+String(f.substitute({ rain: "p", umbrella: "q", wet: "r", stay_in: "s" }))</textarea>
+  <div class="runbox-bar"><button type="button" data-run>Run</button><button type="button" class="ghost" data-reset>Reset</button><span class="runbox-meta">Ctrl/⌘ + Enter runs</span></div>
+  <div class="runbox-out" aria-live="polite"></div>
+</section>
+<footer class="sitelinks"><a href="https://github.com/ratmath/logic">GitHub</a> · <a href="https://ratmath.com/">ratmath.com</a> · <a href="https://ratmath.com/shelf/">shelf</a> · <a href="https://ratmath.com/core/">core</a></footer>
+</article>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Satisfiability and validity · RatMath Logic</title>
+<meta name="description" content="Satisfiability, validity, entailment and equivalence in @ratmath/logic, each answered with a checked model or a checked resolution refutation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script type="module" src="assets/site.js"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Satisfiability and validity</h1>
+<p class="lede">Can this formula be true? Must it be? Does this follow from that? Are these two the same? All four are one question, and the library answers it with evidence: a valuation you can plug in, or a proof you can check line by line.</p>
+
+<h2>The four questions</h2>
+<p>A formula is <em>satisfiable</em> if some valuation makes it true, and <em>valid</em> if every valuation does. Premises <em>entail</em> a conclusion when every valuation that makes all the premises true makes the conclusion true. Two formulas are <em>equivalent</em> when they agree under every valuation. Each reduces to satisfiability:</p>
+<ul>
+<li>\(A\) is valid exactly when \(\lnot A\) is unsatisfiable.</li>
+<li>\(P_1, \dots, P_n\) entail \(C\) exactly when \(P_1 \land \dots \land P_n \land \lnot C\) is unsatisfiable.</li>
+<li>\(A\) and \(B\) are equivalent exactly when \(A \oplus B\) is unsatisfiable.</li>
+</ul>
+<pre><code>import { satisfiable, valid, entails, equivalent, classify } from "@ratmath/logic";
+
+satisfiable("(p | q) &amp; ~p");
+// { status: "satisfiable", model: { p: false, q: true }, … }
+
+valid("(p -&gt; q) -&gt; (q -&gt; p)");
+// { status: "invalid", countermodel: { p: false, q: true }, … }
+
+entails("p -&gt; q, q -&gt; r", "p -&gt; r").status;      // "valid"
+equivalent("p -&gt; q", "~q -&gt; ~p").status;         // "equivalent"
+equivalent("p -&gt; q", "q -&gt; p");
+// { status: "different", witness: { p: true, q: false }, values: [false, true], … }
+
+classify("p | ~p").kind;                         // "tautology"</code></pre>
+
+<h2>Evidence for "yes": a model</h2>
+<p>A model is easy to check: evaluate the formula. The solver does that before it answers, against the formulas as you wrote them, so a "satisfiable" or "invalid" answer can never rest on a slip in the clause conversion.</p>
+
+<h2>Evidence for "no": a refutation</h2>
+<p>To show that <em>no</em> valuation works, the solver returns a <a href="resolution.html">resolution</a> proof. The formulas are turned into <a href="normal-forms.html">clauses</a>; from two clauses, one with \(p\) and one with \(\lnot p\), the rule infers the clause holding everything else from both:</p>
+<p>\[ \frac{A \lor p \qquad B \lor \lnot p}{A \lor B} \]</p>
+<p>Any valuation that satisfies both premises satisfies the conclusion. So if the empty clause \(\square\), which nothing satisfies, can be reached, the starting clauses cannot all be true.</p>
+<pre><code>const v = valid("((p -&gt; q) &amp; (q -&gt; r)) -&gt; (p -&gt; r)");
+String(v.refutation);
+// 1. p        premise
+// 2. ¬p ∨ q   premise
+// 3. ¬q ∨ r   premise
+// 4. ¬r       premise
+// 5. ¬q       resolve 4, 3 on r
+// 6. ¬p       resolve 5, 2 on q
+// 7. □        resolve 6, 1 on p
+v.refutation.check();   // { ok: true, refutation: true, errors: [] }</code></pre>
+<p>The four premises are the clauses of the negated formula. <code>check()</code> runs a checker that knows only the resolution rule: it does not trust the solver that produced the proof.</p>
+
+<h2>How the search works</h2>
+<p>The solver is the Davis–Putnam–Logemann–Loveland procedure. Pick an atom, suppose it true, and simplify; if a clause is left with one literal, that literal is forced; if a clause is left with none, back up and suppose the atom false. Each dead end is a clause that the current guesses falsify, and when both guesses for an atom fail, resolving the two dead-end clauses on that atom gives the dead end for the level above. The refutation is exactly the record of the failed search, with the steps the conclusion does not depend on removed.</p>
+<p>Formulas that would blow up under distribution go through the <a href="normal-forms.html">Tseitin form</a> instead; the refutation then says which new atom stands for which subformula, in <code>refutation.definitions</code>.</p>
+
+<h2>Unresolved</h2>
+<p>Satisfiability is the original NP-complete problem, and some formulas are hard for every known method. The search counts its steps and stops at its <code>budget</code> (200,000 by default) with a third answer.</p>
+<pre><code>satisfiable(hardFormula, { budget: 1000 });
+// { status: "unresolved", budget: 1000, reason: "the search used its budget of 1000 steps without an answer" }</code></pre>
+<p>"Unresolved" is not "no". Nothing in the library reports a verdict it cannot back.</p>
+
+<h2>The functions</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Call</th><th><code>status</code> and evidence</th></tr>
+<tr><td><code>satisfiable(f)</code> (a formula or a list)</td><td><code>"satisfiable"</code> with <code>model</code>; <code>"unsatisfiable"</code> with <code>refutation</code>.</td></tr>
+<tr><td><code>valid(f)</code></td><td><code>"valid"</code> with <code>refutation</code> (of the negation); <code>"invalid"</code> with <code>countermodel</code>.</td></tr>
+<tr><td><code>entails(premises, conclusion)</code></td><td>The same; the countermodel makes the premises true and the conclusion false.</td></tr>
+<tr><td><code>equivalent(a, b)</code></td><td><code>"equivalent"</code> with <code>refutation</code>; <code>"different"</code> with <code>witness</code> and <code>values</code>.</td></tr>
+<tr><td><code>classify(f)</code></td><td><code>kind</code>: <code>"tautology"</code>, <code>"contradiction"</code> or <code>"contingent"</code>, with <code>trueUnder</code> and <code>falseUnder</code>.</td></tr>
+<tr><td><code>satisfiableClauses(clauses)</code></td><td>The solver on clauses given directly.</td></tr>
+</table></div>
+<p>Every one may also answer <code>"unresolved"</code>. Options: <code>budget</code>, and <code>method</code> (<code>"auto"</code>, <code>"distribute"</code>, <code>"tseitin"</code>) for how the clauses are made.</p>
+<template data-runbox>
+// A puzzle. Three suspects; exactly one is guilty; each makes a statement,
+// and exactly one statement is true.
+//   Ann: "Bo did it."    Bo: "I did not."    Cy: "I did not."
+const exactlyOne = (a, b, c) =&gt; `((${a} | ${b} | ${c}) &amp; ~(${a} &amp; ${b}) &amp; ~(${a} &amp; ${c}) &amp; ~(${b} &amp; ${c}))`;
+const facts = [
+  exactlyOne("ann", "bo", "cy"),                 // who is guilty
+  exactlyOne("bo", "~bo", "~cy"),                // which statement is true
+];
+const r = satisfiable(facts);
+PRINT("a solution:", JSON.stringify(r.model));
+
+// Is it the only one? Ask whether the facts entail it.
+const e = entails(facts, "cy");
+PRINT("the facts entail that Cy did it:", e.status);
+PRINT("the proof, as a resolution refutation of 'the facts, and not Cy':");
+PRINT(String(e.refutation));
+PRINT("checked independently:", JSON.stringify(e.refutation.check()));
+
+// And a question with no quick answer is cut off, not guessed.
+const pigeons = [];
+for (let i = 0; i &lt; 7; i++) pigeons.push(Array.from({ length: 6 }, (_, j) =&gt; `p${i}_${j}`));
+for (let j = 0; j &lt; 6; j++) for (let i = 0; i &lt; 7; i++) for (let k = i + 1; k &lt; 7; k++) pigeons.push([`~p${i}_${j}`, `~p${k}_${j}`]);
+satisfiableClauses(pigeons, { budget: 500 }).reason
+</template>
+</article>
+</main>
+</div>
+</body>
+</html>
