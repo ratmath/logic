@@ -42,10 +42,11 @@
   "bugs": {
     "url": "https://github.com/ratmath/logic/issues"
   },
-  "dependencies": {
-    "@ratmath/core": "^0.10.0"
+  "peerDependencies": {
+    "@ratmath/core": ">=0.10.0 <0.12.0"
   },
   "devDependencies": {
+    "@ratmath/core": "^0.11.0",
     "katex": "0.19.1"
   },
   "types": "index.d.ts",
