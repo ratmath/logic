@@ -1,18 +1,8 @@
-// What this package is planned to contain, phase by phase, from the RatMath
-// library roadmap. Nothing here is built yet; a phase is removed from this list
-// when it ships, and the list goes away when it is empty.
+// What is still planned for this package, phase by phase, from the RatMath
+// library roadmap. Phases 1 and 2 (propositional logic and proofs) are built;
+// a phase is removed from this list when it ships.
 
 export const plan = Object.freeze([
-  {
-    "phase": 1,
-    "contents": "Propositional formulas, tables, normal forms, satisfiability, simplification",
-    "estimate": "900"
-  },
-  {
-    "phase": 2,
-    "contents": "Proof checkers, rule sets, proof search and hints",
-    "estimate": "1,200"
-  },
   {
     "phase": 3,
     "contents": "Predicate logic: syntax, finite models, model search, quantifier rules",

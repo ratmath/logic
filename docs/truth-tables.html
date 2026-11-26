@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Truth tables · RatMath Logic</title>
+<meta property="og:title" content="Truth tables · RatMath Logic">
+<meta property="og:description" content="Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ratmath.com/logic/truth-tables.html">
+<meta name="description" content="Truth tables in @ratmath/logic: full tables with a column for each subformula, minterms and maxterms, model counting.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://ratmath.com/assets/katex/0.19.1/katex.min.css">
+<link rel="stylesheet" href="assets/style.css?v=c351dc7788">
+<script type="module" src="assets/site.js?v=c351dc7788"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Truth tables</h1>
+<p class="lede">A formula with <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi></mrow><annotation encoding="application/x-tex">n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">n</span></span></span></span> atoms has <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>2</mn><mi>n</mi></msup></mrow><annotation encoding="application/x-tex">2^n</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6644em;"></span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6644em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">n</span></span></span></span></span></span></span></span></span></span></span> valuations, and its truth table lists the value under each. <code>truthTable</code> writes the table out; <code>tableBits</code> keeps it as one whole number, which is how the library compares and counts tables without writing them.</p>
+
+<h2>The table</h2>
+<pre><code>import { truthTable } from "@ratmath/logic";
+
+const t = truthTable("p -&gt; q");
+t.toString();
+// p │ q │ p → q
+// ──┼───┼──────
+// T │ T │ T
+// T │ F │ F
+// F │ T │ T
+// F │ F │ T
+t.kind;          // "contingent": true on some rows, false on others
+t.rows[1];       // { index: 2, assignment: { p: true, q: false }, values: [false], value: false }</code></pre>
+<p>With <code>subformulas: true</code> every compound part gets its own column, which is how a table is worked by hand. Several formulas can share a table, for comparing them row by row.</p>
+<pre><code>truthTable("(p | q) &amp; ~p", { subformulas: true }).toString();
+// p │ q │ p ∨ q │ ¬p │ (p ∨ q) ∧ ¬p
+// ──┼───┼───────┼────┼─────────────
+// T │ T │ T     │ F  │ F
+// T │ F │ T     │ F  │ F
+// F │ T │ T     │ T  │ T
+// F │ F │ F     │ T  │ F
+
+truthTable(["p -&gt; q", "~q -&gt; ~p"]).rows.every((r) =&gt; r.values[0] === r.values[1]);   // true: contrapositives agree</code></pre>
+<p>Rows start with every atom true, as in most logic books; <code>order: "FT"</code> counts upward in binary from all false instead, as in most circuit books. <code>toString({ symbols: ["1", "0"] })</code> changes what is printed.</p>
+
+<h2>Three kinds of formula</h2>
+<p>A <em>tautology</em> is true on every row, a <em>contradiction</em> on none, and anything else is <em>contingent</em>. <code>t.kind</code> says which. For formulas with many atoms, where the table is too long to write, <a href="satisfiability.html"><code>classify</code></a> answers the same question by search.</p>
+
+<h2>Rows as numbers</h2>
+<p>Read the atoms of a row as a binary numeral, first atom leading, and each row has a number: with atoms <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo separator="true">,</mo><mi>q</mi></mrow><annotation encoding="application/x-tex">p, q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span>, the row <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi></mrow><annotation encoding="application/x-tex">p</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span></span></span></span> true, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi></mrow><annotation encoding="application/x-tex">q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.625em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span></span></span></span> false is row <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mn>10</mn><mn>2</mn></msub><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">10_2 = 2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.7944em;vertical-align:-0.15em;"></span><span class="mord">1</span><span class="mord"><span class="mord">0</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6444em;"></span><span class="mord">2</span></span></span></span>. The rows where a formula is true are its <em>minterms</em>; the rows where it is false are its <em>maxterms</em>.</p>
+<pre><code>import { minterms, maxterms, fromMinterms, fromMaxterms, countModels, models, tableBits } from "@ratmath/logic";
+
+minterms("p xor q");                       // [1, 2]
+maxterms("p xor q");                       // [0, 3]
+String(fromMinterms(["p", "q"], [1, 2]));  // "(¬p ∧ q) ∨ (p ∧ ¬q)": one term for each true row
+String(fromMaxterms(["p", "q"], [0, 3]));  // "(p ∨ q) ∧ (¬p ∨ ¬q)": one clause for each false row
+countModels("p | q | r");                  // 7n of the 8 valuations
+models("p &amp; ~q");                          // [{ p: true, q: false }]
+tableBits("p -&gt; q");                       // 11n = 1011₂: true on rows 3, 1 and 0</code></pre>
+<p>Every truth table is the table of some formula: <code>fromMinterms</code> builds one directly, which proves that <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">¬</mi></mrow><annotation encoding="application/x-tex">\lnot</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord">¬</span></span></span></span>, <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∧</mo></mrow><annotation encoding="application/x-tex">\land</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.5556em;"></span><span class="mord">∧</span></span></span></span> and <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∨</mo></mrow><annotation encoding="application/x-tex">\lor</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.5556em;"></span><span class="mord">∨</span></span></span></span> suffice to express any truth function. <code>tableBits</code> packs the whole column into one <code>BigInt</code>, bit <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi></mrow><annotation encoding="application/x-tex">r</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span></span></span></span> for row <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi></mrow><annotation encoding="application/x-tex">r</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span></span></span></span>; two formulas over the same atoms are equivalent exactly when these numbers are equal.</p>
+
+<h2>Limits</h2>
+<p>A table is written out for up to 16 atoms (65,536 rows), and kept as a number for up to 22. Beyond that, ask <a href="satisfiability.html"><code>satisfiable</code> or <code>valid</code></a>, which do not go through the table.</p>
+
+<h2>The functions</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Call</th><th>Returns</th></tr>
+<tr><td><code>truthTable(f, { subformulas, order, atoms })</code></td><td><code>{ atoms, columns, rows, kind, trueRows, toString() }</code>. <code>f</code> may be a list of formulas.</td></tr>
+<tr><td><code>tableBits(f, atoms?)</code></td><td>The table as a <code>BigInt</code>.</td></tr>
+<tr><td><code>minterms(f)</code>, <code>maxterms(f)</code></td><td>The numbers of the true rows, of the false rows.</td></tr>
+<tr><td><code>fromMinterms(atoms, rows)</code>, <code>fromMaxterms(atoms, rows)</code></td><td>The full disjunctive or conjunctive form with that table.</td></tr>
+<tr><td><code>countModels(f)</code>, <code>models(f, { limit })</code></td><td>How many valuations make it true; the valuations.</td></tr>
+</table></div>
+<section class="runbox" aria-label="Runnable code">
+  <div class="runbox-head"><strong>Try it</strong><span>Edit the code and run it with <code>@ratmath/logic</code> and Core's <code>Rational</code> in scope. The last line's value is shown; <code>PRINT(…)</code> adds lines, <code>TEX(…)</code> typesets math.</span></div>
+  <textarea spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code">// De Morgan's law, checked the long way: a column for every part.
+const law = "~(p &amp; q) &lt;-&gt; (~p | ~q)";
+PRINT(truthTable(law, { subformulas: true }).toString());
+PRINT("kind:", truthTable(law).kind);
+
+// Which two-atom connectives are there? Sixteen tables, so sixteen truth functions.
+PRINT("\nall sixteen truth functions of p and q:");
+for (let table = 0; table &lt; 16; table++) {
+  const rows = [0, 1, 2, 3].filter((r) =&gt; (table &gt;&gt; r) &amp; 1);
+  PRINT(String(table).padStart(2), " true on rows", JSON.stringify(rows).padEnd(10), simplify(fromMinterms(["p", "q"], rows)));
+}
+
+// A majority vote of three: true on 4 of the 8 rows.
+countModels("(a &amp; b) | (a &amp; c) | (b &amp; c)")</textarea>
+  <div class="runbox-bar"><button type="button" data-run>Run</button><button type="button" class="ghost" data-reset>Reset</button><span class="runbox-meta">Ctrl/⌘ + Enter runs</span></div>
+  <div class="runbox-out" aria-live="polite"></div>
+</section>
+<footer class="sitelinks"><a href="https://github.com/ratmath/logic">GitHub</a> · <a href="https://ratmath.com/">ratmath.com</a> · <a href="https://ratmath.com/shelf/">shelf</a> · <a href="https://ratmath.com/core/">core</a></footer>
+</article>
+</main>
+</div>
+</body>
+</html>

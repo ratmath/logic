@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Resolution · RatMath Logic</title>
+<meta property="og:title" content="Resolution · RatMath Logic">
+<meta property="og:description" content="Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ratmath.com/logic/resolution.html">
+<meta name="description" content="Resolution in @ratmath/logic: clauses, the resolution rule, refutations produced by the solver and a checker for refutations written by hand.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://ratmath.com/assets/katex/0.19.1/katex.min.css">
+<link rel="stylesheet" href="assets/style.css?v=c351dc7788">
+<script type="module" src="assets/site.js?v=c351dc7788"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Resolution</h1>
+<p class="lede">Resolution is a proof system with a single rule, working on clauses. It is the form in which the solver hands over its evidence: when it says a formula is valid, it gives a resolution refutation that a few lines of code can check.</p>
+
+<h2>The rule</h2>
+<p>A <em>clause</em> is a disjunction of literals. If one clause contains <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi></mrow><annotation encoding="application/x-tex">x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span></span></span></span> and another contains <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">¬</mi><mi>x</mi></mrow><annotation encoding="application/x-tex">\lnot x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord">¬</span><span class="mord mathnormal">x</span></span></span></span>, then whichever way <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi></mrow><annotation encoding="application/x-tex">x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span></span></span></span> goes, one of the remaining parts must be true:</p>
+<p><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mfrac><mrow><mi>C</mi><mo>∨</mo><mi>x</mi><mspace width="2em"/><mi>D</mi><mo>∨</mo><mi mathvariant="normal">¬</mi><mi>x</mi></mrow><mrow><mi>C</mi><mo>∨</mo><mi>D</mi></mrow></mfrac></mrow><annotation encoding="application/x-tex"> \frac{C \lor x \qquad D \lor \lnot x}{C \lor D} </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:2.0463em;vertical-align:-0.686em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3603em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∨</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">D</span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∨</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord mathnormal">x</span><span class="mspace" style="margin-right:2em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">D</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∨</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord">¬</span><span class="mord mathnormal">x</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span></p>
+<p>The clause below the line is the <em>resolvent</em> on <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi></mrow><annotation encoding="application/x-tex">x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span></span></span></span>. Resolving <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi></mrow><annotation encoding="application/x-tex">x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">x</span></span></span></span> against <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">¬</mi><mi>x</mi></mrow><annotation encoding="application/x-tex">\lnot x</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord">¬</span><span class="mord mathnormal">x</span></span></span></span> leaves the empty clause <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">□</mi></mrow><annotation encoding="application/x-tex">\square</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.675em;"></span><span class="mord amsrm">□</span></span></span></span>, which nothing satisfies. A list of clauses is unsatisfiable exactly when <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">□</mi></mrow><annotation encoding="application/x-tex">\square</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.675em;"></span><span class="mord amsrm">□</span></span></span></span> can be reached from it by resolution: such a derivation is a <em>refutation</em>.</p>
+<pre><code>import { clause, resolve, showClause } from "@ratmath/logic";
+
+showClause(resolve(clause("p, q"), clause("~p, r"), "p"));   // "q ∨ r"</code></pre>
+
+<h2>Proofs from the solver</h2>
+<p>To show that premises entail a conclusion, refute the premises together with the negated conclusion. <code>entails</code> and <code>valid</code> do this and return the refutation.</p>
+<pre><code>import { entails } from "@ratmath/logic";
+
+const result = entails("p -&gt; q, q -&gt; r", "p -&gt; r");
+result.status;                 // "valid"
+String(result.refutation);
+// 1. p        premise
+// 2. ¬p ∨ q   premise
+// 3. ¬q ∨ r   premise
+// 4. ¬r       premise
+// 5. ¬q       resolve 4, 3 on r
+// 6. ¬p       resolve 5, 2 on q
+// 7. □        resolve 6, 1 on p
+result.refutation.check();     // { ok: true, refutation: true, errors: [] }</code></pre>
+<p>The premises of the refutation are the clauses of <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>p</mi><mo>→</mo><mi>q</mi><mo stretchy="false">)</mo><mo>∧</mo><mo stretchy="false">(</mo><mi>q</mi><mo>→</mo><mi>r</mi><mo stretchy="false">)</mo><mo>∧</mo><mi mathvariant="normal">¬</mi><mo stretchy="false">(</mo><mi>p</mi><mo>→</mo><mi>r</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(p \to q) \land (q \to r) \land \lnot(p \to r)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">¬</span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">→</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">r</span><span class="mclose">)</span></span></span></span>. For a large formula the clauses come from the <a href="normal-forms.html">Tseitin form</a>, and the refutation records the definitions it used in <code>definitions</code>.</p>
+<p>The solver is a DPLL search: it sets a variable, simplifies, and backs out when a clause becomes false. Each time it backs out it has, in effect, resolved two clauses, and the refutation is the record of those steps. The search is the complicated part and the check is the simple part, so a mistake in the search cannot produce a wrong "valid".</p>
+
+<h2>Checking a refutation written by hand</h2>
+<pre><code>import { checkResolution } from "@ratmath/logic";
+
+const text = `
+1. {p, q}     premise
+2. {~p, q}    premise
+3. {~q}       premise
+4. {q}        resolve 1, 2 on p
+5. {}         resolve 4, 3 on q`;
+checkResolution(text);          // { ok: true, refutation: true, errors: [] }
+
+checkResolution(text.replace("on p", "on q")).errors[0].message;
+// "line 4: lines 1 and 2 do not clash on q: one must contain q and the other ¬q"</code></pre>
+<p>Clauses may be written with braces and commas or as disjunctions. Pass <code>{ premises }</code> to require that every premise line is one of the clauses you were given. <code>refutation</code> is true when the proof is correct and reaches the empty clause.</p>
+
+<h2>Reference</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>clause(text or literals)</code>, <code>literal(text)</code></td><td>A clause as a sorted list of literals such as <code>"p"</code> and <code>"¬q"</code>.</td></tr>
+<tr><td><code>resolve(c1, c2, atom)</code></td><td>The resolvent on that atom; refuses if the clauses do not clash on it.</td></tr>
+<tr><td><code>showClause(c)</code></td><td><code>"p ∨ ¬q"</code>, or <code>"□"</code> for the empty clause.</td></tr>
+<tr><td><code>ResolutionProof</code></td><td><code>steps</code> of <code>{ n, clause, from, pivot }</code>, <code>premises</code>, <code>definitions</code>, <code>method</code>, <code>check()</code>, <code>toString()</code>.</td></tr>
+<tr><td><code>parseResolution(text)</code>, <code>checkResolution(proof, { premises })</code></td><td>Read and check a refutation: <code>{ ok, refutation, errors }</code>.</td></tr>
+<tr><td><code>satisfiableClauses(clauses, { budget })</code></td><td>The solver on clauses directly: a <code>model</code> or a <code>refutation</code>.</td></tr>
+</table></div>
+<section class="runbox" aria-label="Runnable code">
+  <div class="runbox-head"><strong>Try it</strong><span>Edit the code and run it with <code>@ratmath/logic</code> and Core's <code>Rational</code> in scope. The last line's value is shown; <code>PRINT(…)</code> adds lines, <code>TEX(…)</code> typesets math.</span></div>
+  <textarea spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code">// The pigeonhole principle: three pigeons do not fit in two holes, one to a hole.
+// "p12" reads: pigeon 1 sits in hole 2.
+const pigeons = [1, 2, 3], holes = [1, 2];
+const clauses = [];
+for (const i of pigeons) clauses.push(clause(holes.map((h) =&gt; `p${i}${h}`)));              // every pigeon has a hole
+for (const h of holes)
+  for (const i of pigeons)
+    for (const j of pigeons) if (i &lt; j) clauses.push(clause([`~p${i}${h}`, `~p${j}${h}`])); // no hole has two
+
+const result = satisfiableClauses(clauses);
+PRINT("status:", result.status);
+PRINT(String(result.refutation));
+PRINT("checked:", JSON.stringify(result.refutation.check()));
+
+// With three holes there is room, and the answer is a seating:
+const roomy = satisfiableClauses([
+  ...pigeons.map((i) =&gt; clause([1, 2, 3].map((h) =&gt; `p${i}${h}`))),
+  ...[1, 2, 3].flatMap((h) =&gt; [[1, 2], [1, 3], [2, 3]].map(([i, j]) =&gt; clause([`~p${i}${h}`, `~p${j}${h}`]))),
+]);
+Object.entries(roomy.model).filter(([, v]) =&gt; v).map(([k]) =&gt; k).join(" ")</textarea>
+  <div class="runbox-bar"><button type="button" data-run>Run</button><button type="button" class="ghost" data-reset>Reset</button><span class="runbox-meta">Ctrl/⌘ + Enter runs</span></div>
+  <div class="runbox-out" aria-live="polite"></div>
+</section>
+<footer class="sitelinks"><a href="https://github.com/ratmath/logic">GitHub</a> · <a href="https://ratmath.com/">ratmath.com</a> · <a href="https://ratmath.com/shelf/">shelf</a> · <a href="https://ratmath.com/core/">core</a></footer>
+</article>
+</main>
+</div>
+</body>
+</html>

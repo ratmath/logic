@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simplification · RatMath Logic</title>
+<meta name="description" content="Shortest two-level forms in @ratmath/logic by the Quine–McCluskey method: prime implicants, essential primes, minimal covers and rows that do not matter.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script type="module" src="assets/site.js"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Simplification</h1>
+<p class="lede"><code>simplify</code> returns a shortest "or of ands" or "and of ors" with the same truth table as the formula it is given. <code>minimize</code> shows the working: every prime implicant, which are essential, and which were chosen.</p>
+
+<h2>What it does</h2>
+<pre><code>import { simplify, minimize, primeImplicants } from "@ratmath/logic";
+
+String(simplify("(p &amp; q) | (p &amp; ~q)"));                 // "p"
+String(simplify("(a &amp; b) | (~a &amp; c) | (b &amp; c)"));       // "(a ∧ b) ∨ (¬a ∧ c)": the third term was redundant
+String(simplify("(p -&gt; q) &amp; (q -&gt; r)", { form: "cnf" }));   // "(¬p ∨ q) ∧ (¬q ∨ r)"</code></pre>
+<p>The second line is the <em>consensus theorem</em>: whenever \(b \land c\) holds, one of \(a \land b\) and \(\lnot a \land c\) holds already, whichever way \(a\) falls.</p>
+
+<h2>Implicants and primes</h2>
+<p>A term (an "and" of literals) is an <em>implicant</em> of \(f\) if \(f\) is true whenever the term is. Each true row of the table is an implicant with every atom mentioned. Two implicants that differ in one atom, such as \(p \land q\) and \(p \land \lnot q\), merge into one that leaves the atom out, \(p\), because \((A \land x) \lor (A \land \lnot x) \equiv A\). An implicant that cannot be merged further is <em>prime</em>.</p>
+<p>The Quine–McCluskey method finds all the primes by merging in rounds, starting from the true rows, until nothing merges. A shortest disjunctive form is always a choice of primes, so what is left is a covering problem: pick the fewest primes so that every true row lies under at least one.</p>
+<ul>
+<li>A prime is <em>essential</em> if some true row lies under it and under no other prime. Essential primes are in every solution.</li>
+<li>For the rows not yet covered, the library searches for the smallest set of the remaining primes, fewest terms first and fewest literals among those.</li>
+</ul>
+<pre><code>const m = minimize("(p &amp; q) | (~p &amp; r)");
+m.primes.map((x) =&gt; `${x.formula}${x.essential ? "  essential" : ""}${x.chosen ? "" : "  not needed"}`);
+// ["p ∧ q  essential", "q ∧ r  not needed", "¬p ∧ r  essential"]
+String(m.formula);    // "(p ∧ q) ∨ (¬p ∧ r)"
+m.terms; m.literals;  // 2, 4</code></pre>
+<p>When no prime is essential the choice is real. The function true on rows 0, 1, 2, 5, 6, 7 of three atoms has six primes arranged in a ring, each row under exactly two of them, and two different shortest forms of three terms each.</p>
+
+<h2>Products of sums</h2>
+<p>The shortest conjunctive form comes from the same method applied to the negation: minimise \(\lnot f\) as an "or of ands", then negate, and De Morgan's laws turn it into an "and of ors" for \(f\). <code>simplify</code> with <code>form: "auto"</code> (the default) computes both and returns the shorter.</p>
+
+<h2>Rows that do not matter</h2>
+<p>Sometimes certain inputs cannot occur, and the formula may take either value there. Naming those rows with <code>dontCare</code> lets the primes grow through them, and the result is right on every row that matters.</p>
+<pre><code>// A digit 0 to 9 in four bits, a the leading bit: "is the digit at least 5?" Rows 10 to 15 never occur.
+const atLeast5 = "(~a &amp; b &amp; (c | d)) | (a &amp; ~b &amp; ~c)";   // true on rows 5, 6, 7, 8, 9
+const never = "a &amp; (b | c)";                              // true on rows 10 to 15
+String(simplify(atLeast5));                               // "(a ∧ ¬b ∧ ¬c) ∨ (¬a ∧ b ∧ c) ∨ (¬a ∧ b ∧ d)"
+String(simplify(atLeast5, { dontCare: never, form: "dnf" }));   // "a ∨ (b ∧ c) ∨ (b ∧ d)"
+String(simplify(atLeast5, { dontCare: never }));          // "(a ∨ b) ∧ (a ∨ c ∨ d)": the product of sums is shorter still</code></pre>
+
+<h2>Limits</h2>
+<p>The method works from the table, so it takes at most 14 atoms. The number of primes can itself be large, and the covering step is a hard problem in general; it runs within a budget and <code>minimize(...).exact</code> is <code>false</code> if the budget ran out, in which case the answer is correct and short but perhaps not the shortest. "Shortest" here means shortest in two levels: a formula like \(a \oplus b \oplus c\) has no short two-level form at all.</p>
+
+<h2>The functions</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Call</th><th>Returns</th></tr>
+<tr><td><code>simplify(f, { form, dontCare })</code></td><td>A shortest formula. <code>form</code>: <code>"auto"</code> (default), <code>"dnf"</code> or <code>"cnf"</code>.</td></tr>
+<tr><td><code>minimize(f, { form, dontCare })</code></td><td><code>{ formula, form, terms, literals, exact, primes }</code>; each prime has <code>formula</code>, <code>rows</code>, <code>essential</code>, <code>chosen</code>.</td></tr>
+<tr><td><code>primeImplicants(f)</code></td><td>The prime implicants, as formulas.</td></tr>
+</table></div>
+<template data-runbox>
+// A seven-segment display: when is the top bar lit? The digit is abcd in binary, a leading.
+// Lit for 0, 2, 3, 5, 6, 7, 8, 9; digits 10 to 15 never occur.
+const names = ["a", "b", "c", "d"];
+const lit = fromMinterms(names, [0, 2, 3, 5, 6, 7, 8, 9]);
+const never = fromMinterms(names, [10, 11, 12, 13, 14, 15]);
+
+PRINT("straight from the table:", lit.size, "symbols");
+const plain = minimize(lit);
+PRINT("shortest sum of products:", plain.formula, ` (${plain.terms} terms, ${plain.literals} literals)`);
+const free = minimize(lit, { dontCare: never });
+PRINT("using the rows that never occur:", free.formula, ` (${free.terms} terms, ${free.literals} literals)`);
+PRINT("as a product of sums:", minimize(lit, { dontCare: never, form: "cnf" }).formula);
+
+PRINT("\nthe primes, and the rows each covers:");
+for (const p of free.primes) PRINT(" ", String(p.formula).padEnd(10), JSON.stringify(p.rows), p.essential ? "essential" : p.chosen ? "chosen" : "");
+
+// The result agrees with the table on every digit:
+[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) =&gt; free.formula.evaluate({ a: d &gt;&gt; 3 &amp; 1, b: d &gt;&gt; 2 &amp; 1, c: d &gt;&gt; 1 &amp; 1, d: d &amp; 1 }) ? "█" : "·").join("")
+</template>
+</article>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Proof search and hints · RatMath Logic</title>
+<meta property="og:title" content="Proof search and hints · RatMath Logic">
+<meta property="og:description" content="Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ratmath.com/logic/proof-search.html">
+<meta name="description" content="Proof search in @ratmath/logic: natural deduction proofs written for you in classical or intuitionistic logic, and hints that give the next line of a proof in progress.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://ratmath.com/assets/katex/0.19.1/katex.min.css">
+<link rel="stylesheet" href="assets/style.css?v=c351dc7788">
+<script type="module" src="assets/site.js?v=c351dc7788"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Proof search and hints</h1>
+<p class="lede"><code>prove</code> writes a natural deduction proof of an argument, or shows why there is none. <code>hint</code> looks at a proof someone has started and gives the next line, and only the next line.</p>
+
+<h2>A proof, written for you</h2>
+<pre><code>import { prove } from "@ratmath/logic";
+
+const found = prove("p -&gt; q", "~q -&gt; ~p");
+found.status;           // "proved"
+String(found.proof);
+// 1. p → q     premise
+// 2. │ ¬q      assumption
+// 3. │ │ p     assumption
+// 4. │ │ q     →E 1, 3
+// 5. │ │ ⊥     ¬E 4, 2
+// 6. │ ¬p      ¬I 3-5
+// 7. ¬q → ¬p   →I 2-6</code></pre>
+<p>The proof uses the introduction and elimination rules only, so it reads the way a textbook proof does: to prove a conditional, assume its left side; to use a disjunction, take cases. Every proof returned has been through <a href="natural-deduction.html"><code>checkProof</code></a>, and lines that turned out not to be needed are removed.</p>
+
+<h2>Three honest answers</h2>
+<p>An argument that is not valid has no proof in any system, and the answer is a countermodel:</p>
+<pre><code>prove("p -&gt; q, q", "p");
+// { status: "invalid", countermodel: { p: false, q: true } }</code></pre>
+<p>Classical proofs are built from intuitionistic rules where those are enough, and use indirect proof (<code>IP</code>) only where it is needed. Ask for <code>logic: "intuitionistic"</code> and a formula that needs it is reported as unprovable, with the Kripke model that shows why (see <a href="sequents.html">Sequent calculus</a>):</p>
+<pre><code>String(prove("", "p | ~p").proof);
+// 1. │ ¬(p ∨ ¬p)   assumption
+// 2. │ │ p         assumption
+// 3. │ │ p ∨ ¬p    ∨I 2
+// 4. │ │ ⊥         ¬E 3, 1
+// 5. │ ¬p          ¬I 2-4
+// 6. │ p ∨ ¬p      ∨I 5
+// 7. │ ⊥           ¬E 6, 1
+// 8. p ∨ ¬p        IP 1-7
+
+const result = prove("", "p | ~p", { logic: "intuitionistic" });
+result.status;             // "unprovable"
+String(result.kripke);     // "world 0: nothing true yet\nworld 1 (after world 0): p true"</code></pre>
+<p>The search works within a budget of steps (two million unless you pass <code>budget</code>). If that runs out the answer is <code>{ status: "unresolved" }</code> with the reason. It is never a guess.</p>
+
+<h2>How the search works</h2>
+<p>A proof is found in the <a href="sequents.html">intuitionistic sequent calculus</a> and then translated, rule for rule, into natural deduction: a right rule becomes an introduction, a left rule becomes an elimination applied to a line already in reach. For classical logic the goal is first taken apart as far as the introduction rules go, and each remaining part <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi></mrow><annotation encoding="application/x-tex">A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span></span></span></span> is proved by assuming <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">¬</mi><mi>A</mi></mrow><annotation encoding="application/x-tex">\lnot A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord">¬</span><span class="mord mathnormal">A</span></span></span></span> and deriving <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">⊥</mi></mrow><annotation encoding="application/x-tex">\bot</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord">⊥</span></span></span></span>, which by Glivenko's theorem the intuitionistic search can always do when <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi></mrow><annotation encoding="application/x-tex">A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span></span></span></span> is a classical consequence.</p>
+
+<h2>Hints</h2>
+<p>A hint is for someone in the middle of a proof. It continues from the lines already written, so it follows the writer's own approach wherever that can still succeed, and it gives one line.</p>
+<pre><code>import { hint } from "@ratmath/logic";
+
+const soFar = `
+1. p -&gt; q   premise
+2. q -&gt; r   premise`;
+hint(soFar, { conclusion: "p -&gt; r" }).text;                 // "3. │ p   assumption"
+
+const next = hint(soFar + "\n3. | p   assumption", { conclusion: "p -&gt; r" });
+next.text;        // "4. │ q   →E 1, 3"
+next.goal;        // "r": what this part of the proof is working toward</code></pre>
+<p>Before giving a hint, the lines already there are checked, and other answers are possible:</p>
+<div class="tablewrap"><table class="ref">
+<tr><th>Status</th><th>Meaning</th></tr>
+<tr><td><code>"hint"</code></td><td><code>line</code>, its <code>text</code>, and the <code>goal</code> it works toward.</td></tr>
+<tr><td><code>"error"</code></td><td>A line already written does not check. The <code>error</code> names it; fix that first.</td></tr>
+<tr><td><code>"done"</code></td><td>The proof is complete.</td></tr>
+<tr><td><code>"invalid"</code></td><td>The conclusion does not follow, so there is nothing to finish; a <code>countermodel</code> is given.</td></tr>
+<tr><td><code>"stuck"</code></td><td>The open subproof cannot lead anywhere useful; the <code>message</code> says why.</td></tr>
+<tr><td><code>"unprovable"</code></td><td>Valid classically, but out of reach of the intuitionistic rule set in use.</td></tr>
+<tr><td><code>"unresolved"</code></td><td>The budget ran out.</td></tr>
+</table></div>
+<p>Leave <code>premises</code> out and the premises are the ones the proof writes down. Name them and a missing premise becomes the first hint.</p>
+
+<h2>Reference</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>prove(premises, conclusion, { logic, budget })</code></td><td><code>"proved"</code> with a <code>proof</code> and its <code>lines</code>, <code>"invalid"</code> with a <code>countermodel</code>, <code>"unprovable"</code> with a <code>kripke</code> model, or <code>"unresolved"</code>.</td></tr>
+<tr><td><code>hint(proof, { premises, conclusion, rules, budget })</code></td><td>The next line of a proof in progress, as above.</td></tr>
+</table></div>
+<section class="runbox" aria-label="Runnable code">
+  <div class="runbox-head"><strong>Try it</strong><span>Edit the code and run it with <code>@ratmath/logic</code> and Core's <code>Rational</code> in scope. The last line's value is shown; <code>PRINT(…)</code> adds lines, <code>TEX(…)</code> typesets math.</span></div>
+  <textarea spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code">// Let hints write a whole proof, one line at a time: each hint is appended and the next one asked for.
+const premises = "p | q, p -&gt; r, q -&gt; r";
+const conclusion = "r";
+
+let text = "";
+for (let step = 0; step &lt; 40; step++) {
+  const h = hint(text, { premises, conclusion });
+  if (h.status !== "hint") {
+    PRINT("\n" + h.status + ":", h.message ?? "");
+    break;
+  }
+  PRINT(h.text.padEnd(28), "(toward " + h.goal + ")");
+  text += h.text + "\n";
+}
+
+// The same argument from prove, for comparison:
+String(prove(premises, conclusion).proof)</textarea>
+  <div class="runbox-bar"><button type="button" data-run>Run</button><button type="button" class="ghost" data-reset>Reset</button><span class="runbox-meta">Ctrl/⌘ + Enter runs</span></div>
+  <div class="runbox-out" aria-live="polite"></div>
+</section>
+<footer class="sitelinks"><a href="https://github.com/ratmath/logic">GitHub</a> · <a href="https://ratmath.com/">ratmath.com</a> · <a href="https://ratmath.com/shelf/">shelf</a> · <a href="https://ratmath.com/core/">core</a></footer>
+</article>
+</main>
+</div>
+</body>
+</html>

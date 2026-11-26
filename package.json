@@ -1,6 +1,6 @@
 {
   "name": "@ratmath/logic",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability",
   "type": "module",
   "main": "index.js",
