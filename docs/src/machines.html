@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grammars and machines · RatMath Logic</title>
+<meta name="description" content="Grammars, pushdown automata, Turing machines and recursive functions in @ratmath/logic: CYK parsing with parse trees, Chomsky normal form, machines run with a step budget, and primitive recursion from scratch.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script type="module" src="assets/site.js"></script>
+</head>
+<body>
+<div class="shell">
+<aside></aside>
+<main>
+<article>
+<div class="eyebrow">Topic</div>
+<h1>Grammars and machines</h1>
+<p class="lede">Beyond finite automata the machines get memory: a stack, then an unbounded tape. Each step up recognises more languages, and at the top, with Turing machines and recursive functions, the questions stop being decidable. Machines here run with a step budget, and a machine that has not halted is reported as running, never as rejecting.</p>
+
+<h2>Context-free grammars</h2>
+<p>A grammar has rules that rewrite a nonterminal (a capital letter) into a string of symbols. The words it generates are the strings of terminals reachable from the start symbol. \(S \to aSb \mid \varepsilon\) generates \(a^n b^n\), which no finite automaton can recognise, since it would need to count without limit.</p>
+<pre><code>import { grammar, showTree } from "@ratmath/logic";
+
+const g = grammar("S -&gt; a S b | ε");
+g.words(8).words;        // ["", "ab", "aabb", "aaabbb", "aaaabbbb"]
+showTree(g.parse("aabb").tree);   // "S(a S(a S(ε) b) b)"</code></pre>
+<p>Membership is decided by the CYK method. The grammar is first put in <em>Chomsky normal form</em>, where every rule is \(A \to BC\) or \(A \to a\): ε-rules and unit rules are removed, and long rules are split. Then a table records which nonterminals generate each piece of the word, shortest pieces first, in time \(O(n^3)\). When the word is accepted, a parse tree in the grammar as you wrote it is found too.</p>
+<pre><code>g.toCNF().toString();
+// S → T0 X0 | T0 T1
+// X0 → S T1
+// S0 → ε | T0 X0 | T0 T1
+// T0 → a
+// T1 → b
+
+const e = grammar("E -&gt; E + T | T\nT -&gt; T * F | F\nF -&gt; ( E ) | x");
+showTree(e.parse("x+x*x").tree);   // "E(E(T(F(x))) + T(T(F(x)) * F(x)))": * binds tighter
+e.accepts("x+*x");                  // false</code></pre>
+
+<h2>Pushdown automata</h2>
+<p>A pushdown automaton is a finite automaton with a stack. Each move reads a symbol (or nothing), pops the top of the stack (or nothing), and pushes a string. It accepts by ending in an accepting state. These machines recognise exactly the context-free languages. The run searches the possible computations breadth first and returns the accepting one it finds:</p>
+<pre><code>import { pda } from "@ratmath/logic";
+
+// a's push A, then each b pops one; accept when only Z is left
+const anbn = pda({ start: "q0", accept: ["q2"], moves: [
+  ["q0", "a", "ε", "q0", "A"], ["q0", "ε", "ε", "q1", "ε"],
+  ["q1", "b", "A", "q1", "ε"], ["q1", "ε", "Z", "q2", "Z"]] });
+anbn.run("aabb").trace.map((c) =&gt; `${c.state} ${c.read || "-"} ${c.stack}`);
+// ["q0 - Z", "q0 a AZ", "q0 aa AAZ", "q1 aa AAZ", "q1 aab AZ", "q1 aabb Z", "q2 aabb Z"]
+anbn.accepts("aab");    // false</code></pre>
+
+<h2>Turing machines</h2>
+<p>A Turing machine has a tape, unbounded both ways, and a head that reads a symbol, writes one, and moves left or right, according to a table indexed by state and symbol. Every algorithm can be written as one (the Church–Turing thesis), and so whether a machine halts cannot in general be decided: the halting problem. So <code>run</code> takes a budget, and a machine still going at the end is <code>"running"</code>.</p>
+<pre><code>import { turing, binaryIncrement } from "@ratmath/logic";
+
+binaryIncrement().run("1011", { trace: true });
+// { status: "accepted", steps: 8, tape: "1100", trace: ["right: [1]011", "right: 1[0]11", …,
+//   "carry: 101[1]_", "carry: 10[1]0_", "carry: 1[0]00_", "done: 1[1]00_"] }
+
+turing({ start: "q", delta: { "q,_": ["q", "_", "R"] } }).run("", { budget: 50 }).status;
+// "running": this one walks right forever, but the run only knows it has not stopped</code></pre>
+<p>A transition is written <code>"state,symbol": [new state, symbol written, move]</code>, with moves <code>L</code>, <code>R</code> or <code>S</code> (stay). With no transition the machine halts without accepting.</p>
+
+<h2>Recursive functions</h2>
+<p>The other road to computability builds functions on the natural numbers from a few pieces: zero, successor, projections \(P^n_i\), composition, and <em>primitive recursion</em>: \(f(0, \vec y) = g(\vec y)\) and \(f(x+1, \vec y) = h(x, f(x, \vec y), \vec y)\). These are the primitive recursive functions, and every one of them halts. Adding <em>minimisation</em>, \(\mu x.\, f(x, \vec y) = 0\), the least zero, gives the general recursive functions, exactly the functions Turing machines compute, and with it the possibility of searching forever.</p>
+<pre><code>import { recursive } from "@ratmath/logic";
+
+const { add, mult, power, factorial } = recursive.examples;   // built only from the pieces
+add.at(3, 4);            // 7n
+power.at(2, 10);         // 1024n
+factorial.at(7);         // 5040n
+
+const { compose, proj } = recursive;
+const double = compose(add, [proj(1, 1), proj(1, 1)]);
+double.at(21);           // 42n
+double.name;             // "add∘(P1^1,P1^1)"</code></pre>
+<p>These are computed the honest way, so addition takes \(x\) successor steps and multiplication repeats addition: keep the numbers small. <code>mu</code> stops at its budget and says that the search may never end.</p>
+
+<h2>Reference</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Export</th><th>What it does</th></tr>
+<tr><td><code>grammar(text | { start, rules })</code></td><td>A <code>Grammar</code>: <code>words(maxLength)</code>, <code>toCNF()</code>, <code>parse(word)</code> (<code>accepted</code>, <code>tree</code>, <code>cnfTree</code>), <code>accepts</code>, <code>toString()</code>.</td></tr>
+<tr><td><code>showTree(tree)</code></td><td>A parse tree as <code>S(a S(…) b)</code>.</td></tr>
+<tr><td><code>pda({ start, accept, stackStart, moves })</code></td><td>A <code>PDA</code>; <code>run(word, { budget })</code> gives <code>"accepted"</code> with a <code>trace</code>, <code>"rejected"</code>, or <code>"unresolved"</code>.</td></tr>
+<tr><td><code>turing({ start, accept, reject, blank, delta })</code></td><td>A <code>TuringMachine</code>; <code>run(input, { budget, trace })</code> gives <code>status</code> (<code>"accepted"</code>, <code>"rejected"</code>, <code>"halted"</code>, <code>"running"</code>), <code>steps</code>, <code>tape</code>, <code>head</code>.</td></tr>
+<tr><td><code>binaryIncrement()</code></td><td>A machine that adds one to a binary number.</td></tr>
+<tr><td><code>recursive</code></td><td><code>zero</code>, <code>succ</code>, <code>proj(i, n)</code>, <code>compose(f, gs)</code>, <code>primrec(g, h)</code>, <code>mu(f, { budget })</code>, <code>constant(c, n)</code>, and <code>examples</code>: add, mult, pred, monus, power, factorial. Each has <code>arity</code>, <code>name</code>, <code>at(...)</code> on BigInt.</td></tr>
+</table></div>
+<template data-runbox>
+// A Turing machine that checks a word of a's and b's is a palindrome:
+// cross off the first symbol, run to the end, check it matches, come back.
+const pal = turing({ start: "s", accept: "yes", reject: "no", delta: {
+  "s,a": ["ra", "_", "R"], "s,b": ["rb", "_", "R"], "s,_": ["yes", "_", "S"],
+  "ra,a": ["ra", "a", "R"], "ra,b": ["ra", "b", "R"], "ra,_": ["ca", "_", "L"],
+  "rb,a": ["rb", "a", "R"], "rb,b": ["rb", "b", "R"], "rb,_": ["cb", "_", "L"],
+  "ca,a": ["back", "_", "L"], "ca,b": ["no", "b", "S"], "ca,_": ["yes", "_", "S"],
+  "cb,b": ["back", "_", "L"], "cb,a": ["no", "a", "S"], "cb,_": ["yes", "_", "S"],
+  "back,a": ["back", "a", "L"], "back,b": ["back", "b", "L"], "back,_": ["s", "_", "R"],
+} });
+for (const w of ["abba", "aba", "abab", ""]) {
+  const r = pal.run(w);
+  PRINT(JSON.stringify(w), r.status, "in", r.steps, "steps");
+}
+
+// The same language by a grammar
+const g = grammar("S -&gt; a S a | b S b | a | b | ε");
+["abba", "aba", "abab"].map((w) =&gt; g.accepts(w))
+</template>
+</article>
+</main>
+</div>
+</body>
+</html>

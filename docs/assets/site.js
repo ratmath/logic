@@ -1,8 +1,8 @@
 // Shared page furniture for the logic docs: the contents column, the theme
 // switch and the code boxes. Add each topic page to PAGES as it is written.
 
-import * as A from "./logic.js?v=c351dc7788";
-import { mountRunboxes } from "./runbox.js?v=c351dc7788";
+import * as A from "./logic.js?v=c0912fd321";
+import { mountRunboxes } from "./runbox.js?v=c0912fd321";
 
 export { A };
 
@@ -22,6 +22,17 @@ export const PAGES = [
   { href: "truth-trees.html", title: "Truth trees", blurb: "Trees that close to prove validity, or stay open and give the countermodel." },
   { href: "resolution.html", title: "Resolution", blurb: "One rule on clauses: the evidence the solver gives, and a checker for refutations by hand." },
   { href: "proof-search.html", title: "Proof search and hints", blurb: "Proofs written for you in either logic, and hints that give the next line only." },
+  { group: "Quantifiers" },
+  { href: "predicate-logic.html", title: "Predicate logic", blurb: "Quantifiers, function symbols and identity; substitution that does not capture; prenex and Skolem forms." },
+  { href: "models.html", title: "Finite models", blurb: "Truth in a structure with witnesses and counterexamples, and model search that checks what it finds." },
+  { href: "first-order-proofs.html", title: "First-order proofs and trees", blurb: "Quantifier and identity rules with their conditions on names, and trees that close or give a countermodel." },
+  { group: "Applications" },
+  { href: "circuits.html", title: "Circuits and Karnaugh maps", blurb: "Gates and wiring, adders, NAND-only circuits, equivalence with a witness, and maps grouped into shortest forms." },
+  { href: "syllogisms.html", title: "Syllogisms", blurb: "All 256 moods and figures decided on the Venn diagram, with names, counterexamples and the traditional rules." },
+  { href: "modal-logic.html", title: "Modal logic", blurb: "Necessity and possibility, Kripke models, and validity in K, D, T, B, S4 and S5 by labelled trees." },
+  { group: "Computability" },
+  { href: "automata.html", title: "Automata and regular expressions", blurb: "DFAs and NFAs, minimisation, equivalence with a shortest distinguishing word, regular expressions both ways." },
+  { href: "machines.html", title: "Grammars and machines", blurb: "CYK parsing with trees, pushdown automata, Turing machines with a step budget, and recursive functions." },
 ];
 
 export const h = (tag, attrs = {}, ...kids) => {

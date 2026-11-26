@@ -427,6 +427,332 @@ export function hint(
   options: { premises?: FormulaList; conclusion: FormulaLike; rules?: RuleSet; budget?: number },
 ): Hint;
 
+// ---- predicate logic ----
+
+export class Term {
+  readonly kind: "var" | "const" | "fn";
+  readonly name: string;
+  readonly args: Term[];
+  equals(other: Term): boolean;
+  toString(): string;
+}
+export type FOKind = "pred" | "eq" | "top" | "bot" | "not" | "and" | "or" | "imp" | "iff" | "xor" | "all" | "ex";
+export type FOFormulaLike = FOFormula | string;
+export type FOFormulaList = readonly FOFormulaLike[] | string | FOFormula;
+export class FOFormula {
+  readonly kind: FOKind;
+  readonly key: string;
+  /** For pred: the predicate name and arguments; for eq: the two terms. */
+  readonly name?: string;
+  readonly args?: Term[];
+  /** For quantifiers. */
+  readonly variable?: string;
+  readonly body?: FOFormula;
+  readonly arg?: FOFormula;
+  readonly left?: FOFormula;
+  readonly right?: FOFormula;
+  readonly isQuantifier: boolean;
+  readonly isAtomic: boolean;
+  readonly isSentence: boolean;
+  readonly parts: FOFormula[];
+  equals(other: FOFormulaLike): boolean;
+  /** Equal up to renaming bound variables. */
+  alphaEquals(other: FOFormulaLike): boolean;
+  freeVariables(): string[];
+  signature(): { predicates: Map<string, number>; functions: Map<string, number>; constants: string[] };
+  /** Replace the free x by a term, renaming bound variables so nothing is captured. */
+  substitute(x: string, term: Term | string): FOFormula;
+  toString(options?: { style?: "unicode" | "ascii" | "tex" }): string;
+  toTeX(): string;
+}
+export const FTRUE: FOFormula;
+export const FFALSE: FOFormula;
+export function parseFO(text: string): FOFormula;
+export function parseTerm(text: string): Term;
+export function fo(input: FOFormulaLike): FOFormula;
+export function foList(input: FOFormulaList): FOFormula[];
+export function isVariableName(name: string): boolean;
+export function foNnf(f: FOFormulaLike): FOFormula;
+export function prenex(f: FOFormulaLike): FOFormula;
+export function skolemize(f: FOFormulaLike): FOFormula;
+
+export type Element = string | number;
+export interface StructureSpec {
+  domain: readonly Element[] | number;
+  constants?: Record<string, Element>;
+  functions?: Record<string, ((...xs: any[]) => Element) | Record<string, Element>>;
+  predicates?: Record<string, readonly (Element | readonly Element[])[] | boolean | ((...xs: any[]) => boolean)>;
+}
+export interface StructureData {
+  domain: Element[];
+  constants: Record<string, Element>;
+  functions: Record<string, Record<string, Element>>;
+  predicates: Record<string, (Element | Element[])[] | boolean>;
+}
+export class Structure {
+  constructor(spec: StructureSpec);
+  readonly domain: Element[];
+  readonly size: number;
+  readonly constants: Record<string, Element>;
+  readonly functions: Record<string, (...xs: Element[]) => Element>;
+  readonly predicates: Record<string, (...xs: Element[]) => boolean>;
+  term(t: Term, env?: Record<string, Element>): Element;
+  holds(f: FOFormulaLike, env?: Record<string, Element>): boolean;
+  describe(): StructureData;
+  readonly extensions: StructureData;
+}
+export function structure(spec: StructureSpec | Structure): Structure;
+export interface Evaluation {
+  value: boolean;
+  reason: string;
+  witness?: Record<string, Element>;
+  counterexample?: Record<string, Element>;
+  steps?: object[];
+}
+export function evaluate(f: FOFormulaLike, M: StructureSpec | Structure, options?: { assignment?: Record<string, Element>; explain?: boolean }): Evaluation;
+export type FindModel =
+  | { status: "found"; model: Structure; size: number }
+  | { status: "none"; upTo: number }
+  | { status: "unresolved"; size: number; reason: string };
+/** A finite model of the sentences, searched by size; "none" is only up to maxSize. */
+export function findModel(sentences: FOFormulaList, options?: { minSize?: number; maxSize?: number; budget?: number }): FindModel;
+export type Countermodel =
+  | { status: "invalid"; countermodel: Structure; size: number }
+  | { status: "unresolved"; reason: string; upTo?: number };
+export function countermodel(premises: FOFormulaList, conclusion: FOFormulaLike, options?: { minSize?: number; maxSize?: number; budget?: number }): Countermodel;
+
+export const foRules: { readonly intuitionistic: RuleSet; readonly classical: RuleSet; readonly derived: RuleSet };
+export function parseFOProof(text: string, options?: { rules?: RuleSet }): Proof;
+export function checkFOProof(proof: Proof | string | readonly ProofLineInput[], options?: { rules?: RuleSet; premises?: FOFormulaList; conclusion?: FOFormulaLike }): ProofCheck;
+
+export interface FOTreeNode {
+  lines: object[];
+  closed: boolean;
+  open: boolean;
+  unfinished: boolean;
+  branches: FOTreeNode[] | null;
+}
+export type FOTableauResult =
+  | { status: "valid"; tree: FOTreeNode }
+  | { status: "invalid"; countermodel: Structure; tree: FOTreeNode }
+  | { status: "unresolved"; reason: string; budget?: number; tree?: FOTreeNode };
+/** A first-order truth tree for premises ⊨ conclusion (the conclusion negated at the root). */
+export function foTableau(premises: FOFormulaList, conclusion?: FOFormulaLike, options?: { budget?: number }): FOTableauResult;
+export function showTableau(tree: FOTreeNode): string;
+/** A truth tree, then a countermodel search, then a longer tree. */
+export function foEntails(premises: FOFormulaList, conclusion: FOFormulaLike, options?: { maxSize?: number; budget?: number }): FOTableauResult | Countermodel;
+
+// ---- circuits, Karnaugh maps, syllogisms ----
+
+export type GateKind = "and" | "or" | "xor" | "nand" | "nor" | "xnor" | "not" | "buf";
+export interface CircuitSpec {
+  inputs: readonly string[];
+  /** name → [kind, input names…] */
+  gates: Record<string, readonly string[]>;
+  outputs?: readonly string[];
+  name?: string;
+}
+export class Circuit {
+  constructor(spec: CircuitSpec);
+  readonly inputs: string[];
+  readonly outputs: string[];
+  readonly gates: Record<string, { kind: GateKind; from: string[] }>;
+  readonly order: string[];
+  evaluate(values: readonly (0 | 1 | boolean)[] | Record<string, 0 | 1 | boolean>): Record<string, 0 | 1>;
+  truthTable(): { inputs: (0 | 1)[]; outputs: Record<string, 0 | 1> }[];
+  formula(output?: string): Formula;
+  readonly size: number;
+  readonly depth: number;
+  readonly counts: Partial<Record<GateKind, number>>;
+}
+export function circuit(spec: CircuitSpec | Circuit): Circuit;
+export function circuitsEquivalent(a: Circuit | FormulaLike | readonly FormulaLike[], b: Circuit | FormulaLike | readonly FormulaLike[]):
+  | { status: "equivalent" }
+  | { status: "different"; output: string | number; inputs: Record<string, 0 | 1>; values: (0 | 1)[] };
+export function circuitFrom(f: FormulaLike, options?: { gates?: "standard" | "nand" | "nor"; output?: string }): Circuit;
+export const adders: { half(): Circuit; full(): Circuit; ripple(bits: number): Circuit };
+export interface KarnaughMap {
+  atoms: string[];
+  rowAtoms: string[];
+  colAtoms: string[];
+  rowLabels: string[];
+  colLabels: string[];
+  cells: (0 | 1 | "x")[][];
+  groups: { formula: Formula; cells: [number, number][]; size: number; essential: boolean }[];
+  formula: Formula;
+  toString(): string;
+}
+export function karnaugh(f: FormulaLike | { minterms: readonly number[]; atoms: readonly string[]; dontCares?: readonly number[] }, options?: { atoms?: readonly string[]; dontCares?: readonly number[] }): KarnaughMap;
+
+export type CategoricalForm = "A" | "E" | "I" | "O";
+export interface Categorical {
+  form: CategoricalForm;
+  subject: string;
+  predicate: string;
+}
+export function categorical(input: string | Categorical): Categorical;
+export function categoricalText(c: Categorical): string;
+export interface SyllogismResult {
+  valid: boolean;
+  mood: string;
+  figure: 1 | 2 | 3 | 4;
+  /** Mood and figure, as "AAA-1". */
+  form: string;
+  name: string | null;
+  existentialImport: boolean;
+  terms: { S: string; M: string; P: string };
+  statements: [string, string, string];
+  counterexample: string[] | null;
+  venn: { shaded: string[]; marked: string[] };
+  rules: { rule: string; broken: boolean }[];
+}
+export function syllogism(major: string | Categorical, minor: string | Categorical, conclusion: string | Categorical, options?: { existentialImport?: boolean }): SyllogismResult;
+export function syllogism(moodAndFigure: string, options?: { existentialImport?: boolean; S?: string; M?: string; P?: string }): SyllogismResult;
+export function validSyllogisms(options?: { existentialImport?: boolean }): { form: string; name: string | null }[];
+
+// ---- modal logic ----
+
+export type ModalSystem = "K" | "D" | "T" | "B" | "S4" | "S5";
+export class ModalFormula {
+  readonly kind: string;
+  readonly key: string;
+  readonly parts: ModalFormula[];
+  readonly modalDepth: number;
+  atoms(): string[];
+  equals(other: ModalFormula | string): boolean;
+  toString(options?: { style?: "unicode" | "ascii" | "tex" }): string;
+}
+export function parseModal(text: string): ModalFormula;
+export function modal(input: ModalFormula | string): ModalFormula;
+export interface KripkeSpec {
+  worlds: readonly string[] | number;
+  access?: readonly (readonly [string, string])[] | Record<string, readonly string[]>;
+  valuation?: Record<string, readonly string[]>;
+}
+export class Kripke {
+  constructor(spec: KripkeSpec);
+  readonly worlds: string[];
+  sees(w: string): string[];
+  describe(): { worlds: string[]; access: Record<string, string[]>; valuation: Record<string, string[]> };
+  truthAt(f: ModalFormula | string, w: string): boolean;
+  truthAt(f: ModalFormula | string, w: string, options: { explain: true }): { value: boolean; steps: object[] };
+  trueAt(f: ModalFormula | string): string[];
+  holds(f: ModalFormula | string): boolean;
+  properties(): { reflexive: boolean; symmetric: boolean; transitive: boolean; serial: boolean; euclidean: boolean };
+}
+export function kripke(spec: KripkeSpec | Kripke): Kripke;
+export const SYSTEMS: Readonly<Record<ModalSystem, readonly string[]>>;
+export function validOnFrame(f: ModalFormula | string, frame: KripkeSpec | Kripke):
+  | { valid: true }
+  | { valid: false; valuation: Record<string, string[]>; world: string; model: Kripke };
+export type ModalValid =
+  | { status: "valid"; tree: object }
+  | { status: "invalid"; countermodel: Kripke; world: string }
+  | { status: "unresolved"; reason: string };
+export function modalValid(f: ModalFormula | string, options?: { system?: ModalSystem; budget?: number }): ModalValid;
+export function showModalTree(tree: object): string;
+
+// ---- automata, grammars and machines ----
+
+export interface AutomatonSpec {
+  states?: readonly string[];
+  alphabet?: string | readonly string[];
+  start?: string;
+  accept?: readonly string[];
+  /** state → symbol (or "ε") → one state or several */
+  delta: Record<string, Record<string, string | readonly string[]>>;
+}
+export class Automaton {
+  constructor(spec: AutomatonSpec);
+  readonly states: string[];
+  readonly alphabet: string[];
+  readonly start: string;
+  readonly accept: Set<string>;
+  readonly isDFA: boolean;
+  readonly isComplete: boolean;
+  run(word: string): { accepted: boolean; trace: { read: string | null; states: string[] }[]; stuck?: string };
+  accepts(word: string): boolean;
+  words(maxLength?: number): string[];
+  toString(): string;
+}
+export type AutomatonLike = Automaton | AutomatonSpec;
+export function automaton(spec: AutomatonLike): Automaton;
+export function toDFA(a: AutomatonLike): Automaton;
+export function complete(a: AutomatonLike, alphabet?: string | readonly string[]): Automaton;
+export function minimizeAutomaton(a: AutomatonLike): Automaton;
+export function equivalentAutomata(a: AutomatonLike | string, b: AutomatonLike | string):
+  | { equivalent: true }
+  | { equivalent: false; word: string; acceptedBy: "first" | "second" };
+export function complement(a: AutomatonLike, alphabet?: string | readonly string[]): Automaton;
+export function product(a: AutomatonLike, b: AutomatonLike, op?: "and" | "or" | "minus"): Automaton;
+export function parseRegex(text: string): object;
+export function regexToNFA(regex: string | object): Automaton;
+export function toRegex(a: AutomatonLike): string;
+
+export interface ParseTree {
+  symbol: string;
+  children?: ParseTree[];
+}
+export class Grammar {
+  constructor(input: string | { start?: string; rules: Record<string, readonly string[]> });
+  readonly start: string;
+  readonly rules: Map<string, string[][]>;
+  readonly terminals: string[];
+  readonly nonterminals: string[];
+  words(maxLength?: number, options?: { budget?: number }): { words: string[]; complete: boolean };
+  toCNF(): Grammar;
+  parse(word: string): { accepted: boolean; tree: ParseTree | null; cnfTree: ParseTree | null };
+  accepts(word: string): boolean;
+  toString(): string;
+}
+export function grammar(input: string | Grammar | { start?: string; rules: Record<string, readonly string[]> }): Grammar;
+export function showTree(tree: ParseTree): string;
+export class PDA {
+  constructor(spec: { start: string; accept?: readonly string[]; stackStart?: string; moves: readonly (readonly [string, string, string, string, string])[] });
+  run(word: string, options?: { budget?: number }):
+    | { status: "accepted"; trace: { state: string; read: string; stack: string }[] }
+    | { status: "rejected" }
+    | { status: "unresolved"; reason: string };
+  accepts(word: string, options?: { budget?: number }): boolean;
+}
+export function pda(spec: ConstructorParameters<typeof PDA>[0]): PDA;
+export interface TuringSpec {
+  start?: string;
+  accept?: string;
+  reject?: string;
+  blank?: string;
+  /** "state,symbol" → [new state, symbol written, "L" | "R" | "S"] */
+  delta: Record<string, readonly [string, string, "L" | "R" | "S" | "N"]>;
+}
+export class TuringMachine {
+  constructor(spec: TuringSpec);
+  run(input?: string, options?: { budget?: number; trace?: boolean }): {
+    status: "accepted" | "rejected" | "halted" | "running";
+    steps: number;
+    state: string;
+    head: number;
+    tape: string;
+    trace?: string[];
+  };
+}
+export function turing(spec: TuringSpec): TuringMachine;
+export function binaryIncrement(): TuringMachine;
+export interface RecursiveFunction {
+  readonly arity: number;
+  readonly name: string;
+  at(...xs: (bigint | number)[]): bigint;
+}
+export const recursive: {
+  readonly zero: RecursiveFunction;
+  readonly succ: RecursiveFunction;
+  proj(i: number, n: number): RecursiveFunction;
+  compose(f: RecursiveFunction, gs: readonly RecursiveFunction[]): RecursiveFunction;
+  primrec(g: RecursiveFunction, h: RecursiveFunction, name?: string): RecursiveFunction;
+  mu(f: RecursiveFunction, options?: { budget?: number }): RecursiveFunction;
+  constant(c: number, arity: number): RecursiveFunction;
+  readonly examples: Readonly<Record<"add" | "mult" | "pred" | "monus" | "power" | "factorial", RecursiveFunction>>;
+};
+
 // ---- the plan ----
 
 export interface PlannedPhase {
