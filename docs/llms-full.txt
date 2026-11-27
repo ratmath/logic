@@ -1,0 +1,2519 @@
+# @ratmath/logic 0.2.0: full documentation
+
+> Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability. From https://ratmath.com/logic/, commit dc58bfa. Each page ends with a runnable example; in it, PRINT(...) prints.
+
+
+---
+
+Page: https://ratmath.com/logic/index.html
+
+@ratmath/logic
+
+## Logic where every verdict comes with its evidence
+
+Formal logic you can compute with. A formula is valid with a proof you can replay, invalid with a countermodel that has been checked, or reported as unresolved within a stated budget. Proofs written by hand are checked line by line, and a hint gives the next line and no more.
+
+### What is here
+
+Propositional logic, in two parts: what a formula means (tables, normal forms, satisfiability, shortest forms) and how a formula is proved (four proof systems, each with a checker). Then predicate logic with finite models and quantifier proofs; circuits, syllogisms and modal logic; and the machines of computability, from finite automata to Turing machines. What is still planned is listed at the bottom of this page.
+
+### A first program
+
+```js
+import { parse, truthTable, valid, entails, simplify, checkProof, prove, hint } from "@ratmath/logic";
+
+String(parse("~p & q -> (r | s)"));      // "(¬p ∧ q) → (r ∨ s)": typed on any keyboard, printed properly
+
+valid("((p -> q) & (q -> r)) -> (p -> r)").status;   // "valid", and .refutation is the proof
+entails("p -> q, q", "p").countermodel;              // { p: false, q: true }: the argument fails here
+String(simplify("(a & b) | (~a & c) | (b & c)"));    // "(a ∧ b) ∨ (¬a ∧ c)"
+
+checkProof(`1. p -> q    premise
+2. q         premise
+3. p         ->E 1, 2`).errors[0].message;
+// 'line 3: to give "p", →E needs a line reading "φ → p"; line 1 reads "p → q"'
+
+String(prove("p -> q", "~q -> ~p").proof);           // a seven-line proof, written for you
+```
+
+### Three rules the library keeps
+
+No bare verdicts. "Valid" comes with a proof and "invalid" with a countermodel, and both are checked by code much simpler than the code that found them. A search that runs out of its budget answers `"unresolved"`: it never guesses. See [Satisfiability and validity](https://ratmath.com/logic/satisfiability.html).
+
+Rules are data. A natural deduction rule is a name and a pattern such as "from A→B and A, infer B". The checker reads the rule set it is given, so a course can use its own rules, and classical and intuitionistic logic are two rule sets that are never mixed. See [Natural deduction](https://ratmath.com/logic/natural-deduction.html).
+
+Mistakes are explained, hints are small. A proof that fails to check names the line, the rule, and what the rule needed and did not find. A hint is the next line of a proof that continues from what is already written. See [Proof search and hints](https://ratmath.com/logic/proof-search.html).
+
+### What is planned
+
+From the [library roadmap](https://github.com/ratmath/ratmath/blob/main/docs/design/library-roadmap.md#8-a-logic-package-ratmathlogic). Sizes are rough estimates in lines of source.
+
+| Phase | Contents | Estimate |
+
+| 1 | Propositional formulas, tables, normal forms, satisfiability, simplification | built |
+
+| 2 | Proof checkers, rule sets, proof search and hints | built |
+
+| 3 | Predicate logic: syntax, finite models, model search, quantifier rules | built |
+
+| 4 | Circuits, Karnaugh maps, syllogisms | built |
+
+| 5 | Modal logic | built |
+
+| 6 | Ordinals, cardinals, Peano arithmetic, Gödel numbering | 500 |
+
+| 7 | Automata, grammars, Turing machines | built |
+
+| 8 | Pictures | 500 in graphics |
+
+What is built depends on no other library. The discrete library will use it for Boolean functions.
+
+### Try it
+
+```js
+// Is this argument valid? Ask four ways, and look at the evidence each gives.
+const premises = "p -> q, q -> r";
+const conclusion = "p -> r";
+
+PRINT("by the solver:  ", entails(premises, conclusion).status);
+PRINT("by a truth tree:", tableauProof(premises, conclusion).status);
+PRINT("by sequents:    ", proveSequent(premises + " |- " + conclusion).status);
+const found = prove(premises, conclusion);
+PRINT("by natural deduction:\n" + found.proof);
+
+// Change the conclusion to "r -> p" and every method returns the same countermodel instead.
+entails(premises, "r -> p").countermodel
+```
+
+---
+
+Page: https://ratmath.com/logic/reference.html
+
+Reference
+
+## Reference
+
+Every export, grouped by subject. Wherever a formula is expected, text such as `"p -> q"` is accepted; wherever several are, an array or text with commas.
+
+### Answers
+
+Functions that decide something return an object with a `status` and the evidence for it:
+
+| Status | Evidence |
+
+| "satisfiable", "invalid", "different" | model or countermodel: a valuation, checked by evaluating the formulas. |
+
+| "unsatisfiable", "valid", "equivalent" | refutation: a resolution proof, checked step by step. |
+
+| "proved" | proof or derivation, checked by the proof checker for that system. |
+
+| "unprovable" | kripke: a Kripke model in which the formula fails. Intuitionistic logic only. |
+
+| "unresolved" | reason and the budget that ran out. Pass a larger budget to go further. |
+
+Arguments the library cannot work with are refused with a `LogicError` carrying a `code`: `syntax`, `bad-argument`, `too-large` or `bad-proof`.
+
+### Formulas
+
+| Export | What it does |
+
+| parse(text) | Text to a Formula. Accepts ~ ! ¬ not, & ^ ∧ and, \| ∨ or, -> → implies, ↔ iff, xor ⊕, and T ⊤ true 1, F ⊥ _\|_ false 0. |
+
+| formula(x), formulas(x) | A formula from text or a formula; a list from an array or comma-separated text. |
+
+| atom, not, and, or, implies, iff, xor, TRUE, FALSE | Builders. and and or take any number of parts. |
+
+| Formula | kind, parts, left, right, isAtom, isLiteral, atoms(), subformulas(), size, depth, equals(g), evaluate(valuation), substitute(map), toString({ style }), toTeX(), toJSON(), key. |
+
+| matchSchema(pattern, formula), fillSchema(pattern, binding) | Match a formula against a pattern whose capital letters stand for any formula; fill a pattern in. |
+
+| atomsOf(formulas) | The atoms of several formulas, in order. |
+
+### Tables
+
+| Export | What it does |
+
+| truthTable(f, { atoms, subformulas, order }) | { atoms, columns, rows, kind, trueRows, toString() }; up to 16 atoms. |
+
+| minterms(f), maxterms(f) | Row numbers where the formula is true; false. |
+
+| countModels(f), models(f) | How many valuations satisfy it (a BigInt); the valuations. |
+
+| fromMinterms(atoms, rows), fromMaxterms(atoms, rows) | The canonical formula with that table. |
+
+| tableBits(f, atoms) | The table as bits, for up to 22 atoms. |
+
+### Normal forms
+
+| Export | What it does |
+
+| foldConstants(f) | Remove ⊤ and ⊥ wherever a connective absorbs them. |
+
+| nnf(f) | Negation normal form: only ∧, ∨ and negated atoms. |
+
+| cnf(f, { method, limit }), dnf(f, { method, limit }) | Method "distribute" or "table"; cnf also takes "tseitin". |
+
+| tseitin(f) | { formula, clauses, definitions, atoms }: an equisatisfiable form of linear size. |
+
+| clauses(f) | The clauses of a conjunctive form, as lists of literals. |
+
+| isNnf(f), isCnf(f), isDnf(f) | Whether a formula is already in that form. |
+
+### Satisfiability
+
+| Export | What it does |
+
+| satisfiable(f, { budget }) | "satisfiable" with a model or "unsatisfiable" with a refutation. A list of formulas is taken together. |
+
+| valid(f, { budget }) | "valid" with a refutation of the negation, or "invalid" with a countermodel. |
+
+| entails(premises, conclusion, { budget }) | The same for an argument. |
+
+| equivalent(a, b, { budget }) | "equivalent" or "different" with a valuation that tells them apart. |
+
+| classify(f) | kind: "tautology", "contradiction" or "contingent", with trueUnder, falseUnder or a refutation. |
+
+| satisfiableClauses(clauses, { budget }) | The solver on clauses directly. |
+
+| clause, literal, showClause, resolve | Clauses and the resolution rule. |
+
+| ResolutionProof, parseResolution, checkResolution | Resolution refutations and their checker. |
+
+### Simplification
+
+| Export | What it does |
+
+| simplify(f, { form, dontCare }) | A shortest equivalent two-level formula; form "dnf", "cnf" or the shorter of the two. |
+
+| minimize(f, { form, dontCare, atoms }) | { formula, form, atoms, terms, literals, exact, primes }; up to 14 atoms. |
+
+| primeImplicants(f) | Every prime implicant with the rows it covers. |
+
+### Natural deduction
+
+| Export | What it does |
+
+| checkProof(proof, { rules, premises, conclusion }) | { status, ok, complete, errors, note, proves, lines, rules }; each error is { line, rule, message }. |
+
+| parseProof(text, { rules }), Proof | Lines of { n, depth, formula, rule, cites }; toString({ style }). |
+
+| rules.intuitionistic, rules.classical, rules.derived | Rule sets. checkProof uses rules.classical unless told otherwise. |
+
+| ruleSet(name, list, { logic }) | A rule set from data: each rule is { name, aliases, about, forms: [{ from, infer }] }. |
+
+| proofState(proof) | Open and closed subproofs after the last line. |
+
+| prove(premises, conclusion, { logic, budget }) | A proof, a countermodel, a Kripke model, or unresolved. |
+
+| hint(proof, { premises, conclusion, rules, budget }) | The next line of a proof in progress. |
+
+### Sequents and truth trees
+
+| Export | What it does |
+
+| sequent(text), Sequent | Γ ⊢ Δ with left and right. |
+
+| proveSequent(sequent, { logic, budget }) | A derivation, a countermodel, a Kripke model, or unresolved. |
+
+| checkDerivation, parseDerivation, Derivation | Derivations as numbered lines, and their checker. |
+
+| calculi.classical, calculi.intuitionistic, calculus(name, rules, options) | G3cp and G3ip as data, and a way to build another. |
+
+| forces(model, world, f), kripkeCountermodel(left, right) | Kripke models: evaluation, and a search for a countermodel on small trees. |
+
+| tableau(formulas, { budget, all }), Tableau | A truth tree: status, model, lines, branches, root. |
+
+| tableauProof(premises, conclusion) | "valid" with a closed tree or "invalid" with a countermodel. |
+
+| checkTableau(tableau), tableauRules | The tree checker, and the rules as data. |
+
+### Predicate logic
+
+| Export | What it does |
+
+| parseFO(text), fo, foList, FOFormula, Term, parseTerm | First-order formulas: freeVariables(), isSentence, substitute(x, t) without capture, alphaEquals, signature(). See Predicate logic. |
+
+| foNnf, prenex, skolemize | Normal forms; Skolem form is equisatisfiable. |
+
+| structure(spec), Structure, evaluate(f, M, { assignment, explain }) | Finite structures, and truth in them with witnesses and counterexamples. See Finite models. |
+
+| findModel(sentences, { maxSize }), countermodel(premises, conclusion) | Model search by SAT, with each model checked; an empty search is "unresolved", never valid. |
+
+| checkFOProof, parseFOProof, foRules | Natural deduction with ∀E ∃I ∀I ∃E =I =E. See First-order proofs and trees. |
+
+| foTableau(premises, conclusion, { budget }), showTableau, foEntails | First-order truth trees, and the combined decision. |
+
+### Circuits, syllogisms, modal logic
+
+| Export | What it does |
+
+| circuit(spec), Circuit, circuitFrom(f, { gates }), circuitsEquivalent, adders | Circuits: evaluation, truth tables, size, depth, NAND-only and NOR-only forms. See Circuits and Karnaugh maps. |
+
+| karnaugh(f \| { minterms, atoms, dontCares }) | A map with its groups and shortest sum of products. |
+
+| categorical, categoricalText, syllogism, validSyllogisms | Syllogisms decided on the Venn diagram. See Syllogisms. |
+
+| parseModal, modal, kripke, Kripke, SYSTEMS, validOnFrame | Modal formulas, Kripke models and frames. See Modal logic. |
+
+| modalValid(f, { system }), showModalTree | Validity in K, D, T, B, S4, S5 by labelled trees, with checked countermodels. |
+
+### Automata and machines
+
+| Export | What it does |
+
+| automaton(spec), Automaton, toDFA, complete, minimizeAutomaton | Finite automata, the subset construction, the smallest DFA. See Automata and regular expressions. |
+
+| equivalentAutomata(a, b), complement, product | Equivalence with a shortest distinguishing word; Boolean operations. |
+
+| parseRegex, regexToNFA, toRegex | Regular expressions to automata and back. |
+
+| grammar(text), Grammar, showTree | Context-free grammars: words, Chomsky normal form, CYK parsing with a tree. See Grammars and machines. |
+
+| pda(spec), turing(spec), binaryIncrement() | Pushdown automata and Turing machines, run with a step budget. |
+
+| recursive | Primitive and general recursive functions built from zero, successor and projections. |
+
+| plan | The phases still to come. |
+
+### Try it
+
+```js
+// One formula through the whole library.
+const f = parse("(p -> q) & (q -> r) -> (p -> r)");
+PRINT("formula:   ", String(f), " atoms:", f.atoms().join(" "), " size:", f.size);
+PRINT("table:     ", truthTable(f).kind, " models:", String(countModels(f)));
+PRINT("nnf:       ", String(nnf(f)));
+PRINT("cnf:       ", String(cnf(f)));
+PRINT("simplified:", String(simplify(f)));
+PRINT("solver:    ", valid(f).status, "in", valid(f).refutation.steps.length, "resolution lines");
+PRINT("tree:      ", tableauProof([], f).status, "in", tableauProof([], f).tableau.lines, "lines");
+PRINT("sequents:  ", proveSequent(sequent([], [f])).derivation.size, "lines");
+String(prove([], f).proof)
+```
+
+---
+
+Page: https://ratmath.com/logic/explore.html
+
+Explore
+
+## Explore
+
+Type a formula to see its table and its forms. Test an argument and read the evidence in any of four proof systems. Then write a proof yourself, with the checker and one-line hints beside you.
+
+Type connectives as `~`, `&`, `|`, `->`, `<->`, or as words.
+
+### A formula
+
+q) & (~p -> r)" spellcheck="false">
+
+### An argument
+
+Premises r, q -> r" spellcheck="false">
+
+Conclusion
+Logic
+Show
+
+Try the conclusion `p` for a countermodel. Try no premises and the conclusion `p | ~p` in each logic.
+
+### Your own proof
+
+Premises q, q -> r" spellcheck="false">Conclusion r" spellcheck="false">
+
+Rules
+
+One line holds a number, a bar `|` for each open subproof, the formula, then the reason: `premise`, `assumption`, or a rule and the lines it uses, such as `->E 1, 3` or `->I 3-5`.
+
+### Try it
+
+```js
+// The page above, as code.
+const f = parse("(p -> q) & (~p -> r)");
+PRINT(truthTable(f).toString());
+PRINT("shortest:", String(simplify(f)));
+
+const argument = ["p | q, p -> r, q -> r", "r"];
+PRINT("\n" + prove(...argument).proof);
+
+const mine = `1. p -> q    premise
+2. q -> r    premise
+3. | p       assumption`;
+hint(mine, { conclusion: "p -> r" }).text
+```
+
+---
+
+Page: https://ratmath.com/logic/formulas.html
+
+Topic
+
+## Formulas
+
+A formula is a tree: atoms at the leaves, connectives above them. `parse` reads one from text typed on any keyboard, and a `Formula` prints itself back, lists its atoms and parts, and takes a truth value under a valuation.
+
+### Reading
+
+```js
+import { parse, formula } from "@ratmath/logic";
+
+const f = parse("~p & q -> (r | s)");
+String(f);                      // "(¬p ∧ q) → (r ∨ s)"
+f.kind;                         // "imp"
+String(f.left);                 // "¬p ∧ q"
+f.atoms();                      // ["p", "q", "r", "s"]
+```
+
+Every connective has several spellings, and they can be mixed.
+
+| Connective | Accepted | Printed |
+
+| not | ¬ ~ ! not | ¬ |
+
+| and | ∧ & && /\ ^ and | ∧ |
+
+| or | ∨ \| \|\| \/ or | ∨ |
+
+| if … then | → -> => ⊃ implies | → |
+
+| if and only if | ↔ ≡ iff | ↔ |
+
+| exclusive or | ⊕ xor | ⊕ |
+
+| true, false | ⊤ true 1, ⊥ false 0 _\|_ | ⊤, ⊥ |
+
+An atom is a letter followed by letters, digits or underscores: `p`, `q2`, `rain`, `door_open`. Without brackets, ¬ binds tightest, then ∧, ⊕, ∨, →, ↔; → groups to the right, so `p -> q -> r` is p→(q→r).
+
+A formula that cannot be read says where the trouble is:
+
+```js
+parse("p & (q | )");
+// LogicError: a formula was expected, but found ")" at position 10 in "p & (q | )"
+```
+
+### Writing
+
+Printing never relies on the reader knowing the precedence. Wherever two different connectives meet, the brackets are written; only a run of ∧ or of ∨ is left bare.
+
+```js
+String(parse("p & q | r & s"));              // "(p ∧ q) ∨ (r ∧ s)"
+String(parse("p & q & r"));                  // "p ∧ q ∧ r"
+f.toString({ style: "ascii" });              // "(~p & q) -> (r | s)": reads back with any keyboard
+f.toString({ style: "words" });              // "(not p and q) implies (r or s)"
+f.toTeX();                                   // "(\lnot p \land q) \to (r \lor s)"
+```
+
+Formulas can also be built in code. `and` and `or` take any number of parts, and text is parsed where a formula is expected.
+
+```js
+import { atom, not, and, or, implies, iff, xor, TRUE, FALSE } from "@ratmath/logic";
+
+String(implies(and("p", "q", "r"), or(not("p"), iff("q", "r"))));   // "(p ∧ q ∧ r) → (¬p ∨ (q ↔ r))"
+and() === TRUE;                                                     // the empty conjunction is true
+```
+
+### Meaning
+
+A valuation gives each atom a truth value, and the connectives pass values upward: A→B is false only when A is true and B false; A↔B is true when the two agree; A⊕B when they differ.
+
+```js
+f.evaluate({ p: false, q: true, r: false, s: false });   // false: the left side holds and the right does not
+f.subformulas().map(String);
+// ["p", "¬p", "q", "¬p ∧ q", "r", "s", "r ∨ s", "(¬p ∧ q) → (r ∨ s)"]
+String(f.substitute({ p: "a & b", s: FALSE }));           // "(¬(a ∧ b) ∧ q) → (r ∨ ⊥)"
+f.equals("~p & q -> r | s");                              // true: the same tree
+```
+
+Two formulas are `equals` when they are the same tree. Having the same truth table is a different question, answered by [`equivalent`](https://ratmath.com/logic/satisfiability.html).
+
+### The functions
+
+| Call | Returns |
+
+| parse(text) | The formula, or a LogicError with position. |
+
+| formula(x), formulas(x) | A formula from a formula or text; a list from an array or from text with commas. |
+
+| atom not and or implies iff xor, TRUE, FALSE | Formulas built in code. |
+
+| f.kind, f.name, f.arg, f.left, f.right, f.parts | The shape of the tree. |
+
+| f.atoms(), f.subformulas(), f.size, f.depth | What it is made of. |
+
+| f.evaluate(valuation) | Its truth value. |
+
+| f.substitute(map), f.equals(g) | Replacing atoms; comparing trees. |
+
+| f.toString({ style }), f.toTeX() | Text in "unicode", "ascii", "words" or "tex". |
+
+### Try it
+
+```js
+// A sentence, taken apart.
+// "If it rains and I have no umbrella, then I get wet or I stay in."
+const f = parse("rain & ~umbrella -> wet | stay_in");
+PRINT("formula:    ", f);
+PRINT("in ASCII:   ", f.toString({ style: "ascii" }));
+PRINT("in words:   ", f.toString({ style: "words" }));
+PRINT("atoms:      ", f.atoms().join(", "));
+PRINT("size, depth:", f.size, f.depth);
+for (const part of f.subformulas()) if (!part.isAtom) PRINT("  part:", part);
+
+// It rains, no umbrella, and yet dry and out of doors: the one way to make it false.
+const world = { rain: true, umbrella: false, wet: false, stay_in: false };
+PRINT("in that world it is", f.evaluate(world));
+// The same shape with other content: substitution keeps the tree and swaps the leaves.
+String(f.substitute({ rain: "p", umbrella: "q", wet: "r", stay_in: "s" }))
+```
+
+---
+
+Page: https://ratmath.com/logic/truth-tables.html
+
+Topic
+
+## Truth tables
+
+A formula with n atoms has 2n valuations, and its truth table lists the value under each. `truthTable` writes the table out; `tableBits` keeps it as one whole number, which is how the library compares and counts tables without writing them.
+
+### The table
+
+```js
+import { truthTable } from "@ratmath/logic";
+
+const t = truthTable("p -> q");
+t.toString();
+// p │ q │ p → q
+// ──┼───┼──────
+// T │ T │ T
+// T │ F │ F
+// F │ T │ T
+// F │ F │ T
+t.kind;          // "contingent": true on some rows, false on others
+t.rows[1];       // { index: 2, assignment: { p: true, q: false }, values: [false], value: false }
+```
+
+With `subformulas: true` every compound part gets its own column, which is how a table is worked by hand. Several formulas can share a table, for comparing them row by row.
+
+```js
+truthTable("(p | q) & ~p", { subformulas: true }).toString();
+// p │ q │ p ∨ q │ ¬p │ (p ∨ q) ∧ ¬p
+// ──┼───┼───────┼────┼─────────────
+// T │ T │ T     │ F  │ F
+// T │ F │ T     │ F  │ F
+// F │ T │ T     │ T  │ T
+// F │ F │ F     │ T  │ F
+
+truthTable(["p -> q", "~q -> ~p"]).rows.every((r) => r.values[0] === r.values[1]);   // true: contrapositives agree
+```
+
+Rows start with every atom true, as in most logic books; `order: "FT"` counts upward in binary from all false instead, as in most circuit books. `toString({ symbols: ["1", "0"] })` changes what is printed.
+
+### Three kinds of formula
+
+A tautology is true on every row, a contradiction on none, and anything else is contingent. `t.kind` says which. For formulas with many atoms, where the table is too long to write, [`classify`](https://ratmath.com/logic/satisfiability.html) answers the same question by search.
+
+### Rows as numbers
+
+Read the atoms of a row as a binary numeral, first atom leading, and each row has a number: with atoms p,q, the row p true, q false is row 102​=2. The rows where a formula is true are its minterms; the rows where it is false are its maxterms.
+
+```js
+import { minterms, maxterms, fromMinterms, fromMaxterms, countModels, models, tableBits } from "@ratmath/logic";
+
+minterms("p xor q");                       // [1, 2]
+maxterms("p xor q");                       // [0, 3]
+String(fromMinterms(["p", "q"], [1, 2]));  // "(¬p ∧ q) ∨ (p ∧ ¬q)": one term for each true row
+String(fromMaxterms(["p", "q"], [0, 3]));  // "(p ∨ q) ∧ (¬p ∨ ¬q)": one clause for each false row
+countModels("p | q | r");                  // 7n of the 8 valuations
+models("p & ~q");                          // [{ p: true, q: false }]
+tableBits("p -> q");                       // 11n = 1011₂: true on rows 3, 1 and 0
+```
+
+Every truth table is the table of some formula: `fromMinterms` builds one directly, which proves that ¬, ∧ and ∨ suffice to express any truth function. `tableBits` packs the whole column into one `BigInt`, bit r for row r; two formulas over the same atoms are equivalent exactly when these numbers are equal.
+
+### Limits
+
+A table is written out for up to 16 atoms (65,536 rows), and kept as a number for up to 22. Beyond that, ask [`satisfiable` or `valid`](https://ratmath.com/logic/satisfiability.html), which do not go through the table.
+
+### The functions
+
+| Call | Returns |
+
+| truthTable(f, { subformulas, order, atoms }) | { atoms, columns, rows, kind, trueRows, toString() }. f may be a list of formulas. |
+
+| tableBits(f, atoms?) | The table as a BigInt. |
+
+| minterms(f), maxterms(f) | The numbers of the true rows, of the false rows. |
+
+| fromMinterms(atoms, rows), fromMaxterms(atoms, rows) | The full disjunctive or conjunctive form with that table. |
+
+| countModels(f), models(f, { limit }) | How many valuations make it true; the valuations. |
+
+### Try it
+
+```js
+// De Morgan's law, checked the long way: a column for every part.
+const law = "~(p & q) <-> (~p | ~q)";
+PRINT(truthTable(law, { subformulas: true }).toString());
+PRINT("kind:", truthTable(law).kind);
+
+// Which two-atom connectives are there? Sixteen tables, so sixteen truth functions.
+PRINT("\nall sixteen truth functions of p and q:");
+for (let table = 0; table < 16; table++) {
+  const rows = [0, 1, 2, 3].filter((r) => (table >> r) & 1);
+  PRINT(String(table).padStart(2), " true on rows", JSON.stringify(rows).padEnd(10), simplify(fromMinterms(["p", "q"], rows)));
+}
+
+// A majority vote of three: true on 4 of the 8 rows.
+countModels("(a & b) | (a & c) | (b & c)")
+```
+
+---
+
+Page: https://ratmath.com/logic/normal-forms.html
+
+Topic
+
+## Normal forms
+
+Every formula can be rewritten into a few standard shapes. Negation normal form pushes ¬ down to the atoms; conjunctive and disjunctive forms flatten what is left into two levels. Solvers, circuits and resolution proofs all start from one of these.
+
+### Negation normal form
+
+Write →, ↔ and ⊕ in terms of ∧, ∨, ¬; then move each ¬ inward with De Morgan's laws, ¬(A∧B)≡¬A∨¬B and ¬(A∨B)≡¬A∧¬B, cancelling double negations. What remains has ¬ only on atoms.
+
+```js
+import { nnf, cnf, dnf, clauses, tseitin, isCnf } from "@ratmath/logic";
+
+String(nnf("~(p & (q | ~r))"));   // "¬p ∨ (¬q ∧ r)"
+String(nnf("~(p -> q)"));         // "p ∧ ¬q"
+String(nnf("p <-> q"));           // "(¬p ∨ q) ∧ (p ∨ ¬q)"
+```
+
+### Conjunctive and disjunctive forms
+
+A literal is an atom or its negation. A formula in conjunctive normal form (CNF) is an "and" of clauses, each an "or" of literals; in disjunctive normal form (DNF) it is an "or" of terms, each an "and" of literals. From negation normal form, CNF comes by distributing ∨ over ∧: A∨(B∧C)≡(A∨B)∧(A∨C). DNF is the mirror image.
+
+```js
+String(cnf("(p & q) | r"));          // "(p ∨ r) ∧ (q ∨ r)"
+String(dnf("(p | q) & r"));          // "(p ∧ r) ∨ (q ∧ r)"
+String(cnf("p -> (q & r)"));         // "(¬p ∨ q) ∧ (¬p ∨ r)"
+String(cnf("p | ~p"));               // "⊤": a clause with p and ¬p is always true and is dropped
+clauses("(p -> q) & p & ~q");        // [["p"], ["¬p", "q"], ["¬q"]]: the same thing as lists
+```
+
+The result is tidied: a clause that contains both a literal and its negation is dropped, and so is a clause that contains another clause, since the smaller one already implies it. Neither changes the truth table.
+
+With `method: "table"` the form is read off the truth table instead: one clause for each false row, or one term for each true row. This full form is unique for a given table, which makes it a way to compare formulas, but it is usually much longer.
+
+```js
+String(dnf("p -> q", { method: "table" }));   // "(¬p ∧ ¬q) ∨ (¬p ∧ q) ∨ (p ∧ q)"
+String(dnf("p -> q"));                         // "¬p ∨ q"
+```
+
+### When distribution explodes
+
+Distribution can multiply the size of a formula at every step. (a1​∧b1​)∨⋯∨(an​∧bn​) has 2n literals, and its CNF has 2n clauses: one for each way of picking ai​ or bi​ from every part. `cnf` refuses when the count passes its limit, and says what to use instead.
+
+The Tseitin form avoids the explosion by giving each compound subformula a new atom. For x standing for A∧B, three short clauses say x↔(A∧B):
+
+(¬x∨A)∧(¬x∨B)∧(x∨¬A∨¬B).
+
+One such group for each connective, and one clause asserting the atom for the whole formula. The result grows in step with the formula. It is not equivalent to the original, since it has more atoms, but it is satisfiable exactly when the original is, and a model of it, restricted to the original atoms, is a model of the original. That is all a solver needs.
+
+```js
+const t = tseitin("(p & q) | ~r");
+t.definitions.map((d) => `${d.atom} stands for ${d.formula}`);
+// ["_1 stands for p ∧ q", "_2 stands for (p ∧ q) ∨ ¬r"]
+t.clauses;
+// [["p", "¬_1"], ["q", "¬_1"], ["¬p", "¬q", "_1"], ["_1", "¬_2"], ["¬r", "¬_2"], ["¬_1", "r", "_2"], ["_2"]]
+```
+
+### The functions
+
+| Call | Returns |
+
+| nnf(f) | Negation normal form. |
+
+| cnf(f, { method }) | Conjunctive form. method: "distribute" (default), "table" or "tseitin". |
+
+| dnf(f, { method }) | Disjunctive form. method: "distribute" (default) or "table". |
+
+| clauses(f, { method }) | The clauses as lists of literals, "p" or "¬p". |
+
+| tseitin(f) | { formula, clauses, definitions, atoms }. |
+
+| foldConstants(f) | The formula with ⊤ and ⊥ absorbed: the result is ⊤, ⊥, or free of both. |
+
+| isNnf(f), isCnf(f), isDnf(f) | Whether a formula already has the shape. |
+
+### Try it
+
+```js
+// One formula, every form.
+const f = parse("(p -> q) <-> (~q -> ~p | r)");
+PRINT("formula:", f);
+PRINT("nnf:    ", nnf(f));
+PRINT("cnf:    ", cnf(f));
+PRINT("dnf:    ", dnf(f));
+PRINT("the dnf read from the table has", minterms(f).length, "terms, one for each true row");
+
+// The explosion, and the way round it.
+for (const n of [4, 8, 12]) {
+  const parts = Array.from({ length: n }, (_, i) => `(a${i} & b${i})`).join(" | ");
+  const direct = n <= 8 ? `gives ${clauses(parts).length} clauses` : `would give ${2 ** n} and is refused`;
+  PRINT(`n = ${String(n).padStart(2)}: distribution ${direct}; Tseitin gives ${tseitin(parts).clauses.length}`);
+}
+
+// What the new atoms mean:
+tseitin("(p & q) | ~r").definitions.map((d) => `${d.atom} = ${d.formula}`)
+```
+
+---
+
+Page: https://ratmath.com/logic/satisfiability.html
+
+Topic
+
+## Satisfiability and validity
+
+Can this formula be true? Must it be? Does this follow from that? Are these two the same? All four are one question, and the library answers it with evidence: a valuation you can plug in, or a proof you can check line by line.
+
+### The four questions
+
+A formula is satisfiable if some valuation makes it true, and valid if every valuation does. Premises entail a conclusion when every valuation that makes all the premises true makes the conclusion true. Two formulas are equivalent when they agree under every valuation. Each reduces to satisfiability:
+
+- A is valid exactly when ¬A is unsatisfiable.
+
+- P1​,…,Pn​ entail C exactly when P1​∧⋯∧Pn​∧¬C is unsatisfiable.
+
+- A and B are equivalent exactly when A⊕B is unsatisfiable.
+
+```js
+import { satisfiable, valid, entails, equivalent, classify } from "@ratmath/logic";
+
+satisfiable("(p | q) & ~p");
+// { status: "satisfiable", model: { p: false, q: true }, … }
+
+valid("(p -> q) -> (q -> p)");
+// { status: "invalid", countermodel: { p: false, q: true }, … }
+
+entails("p -> q, q -> r", "p -> r").status;      // "valid"
+equivalent("p -> q", "~q -> ~p").status;         // "equivalent"
+equivalent("p -> q", "q -> p");
+// { status: "different", witness: { p: true, q: false }, values: [false, true], … }
+
+classify("p | ~p").kind;                         // "tautology"
+```
+
+### Evidence for "yes": a model
+
+A model is easy to check: evaluate the formula. The solver does that before it answers, against the formulas as you wrote them, so a "satisfiable" or "invalid" answer can never rest on a slip in the clause conversion.
+
+### Evidence for "no": a refutation
+
+To show that no valuation works, the solver returns a [resolution](https://ratmath.com/logic/resolution.html) proof. The formulas are turned into [clauses](https://ratmath.com/logic/normal-forms.html); from two clauses, one with p and one with ¬p, the rule infers the clause holding everything else from both:
+
+A∨BA∨pB∨¬p​
+
+Any valuation that satisfies both premises satisfies the conclusion. So if the empty clause □, which nothing satisfies, can be reached, the starting clauses cannot all be true.
+
+```js
+const v = valid("((p -> q) & (q -> r)) -> (p -> r)");
+String(v.refutation);
+// 1. p        premise
+// 2. ¬p ∨ q   premise
+// 3. ¬q ∨ r   premise
+// 4. ¬r       premise
+// 5. ¬q       resolve 4, 3 on r
+// 6. ¬p       resolve 5, 2 on q
+// 7. □        resolve 6, 1 on p
+v.refutation.check();   // { ok: true, refutation: true, errors: [] }
+```
+
+The four premises are the clauses of the negated formula. `check()` runs a checker that knows only the resolution rule: it does not trust the solver that produced the proof.
+
+### How the search works
+
+The solver is the Davis–Putnam–Logemann–Loveland procedure. Pick an atom, suppose it true, and simplify; if a clause is left with one literal, that literal is forced; if a clause is left with none, back up and suppose the atom false. Each dead end is a clause that the current guesses falsify, and when both guesses for an atom fail, resolving the two dead-end clauses on that atom gives the dead end for the level above. The refutation is exactly the record of the failed search, with the steps the conclusion does not depend on removed.
+
+Formulas that would blow up under distribution go through the [Tseitin form](https://ratmath.com/logic/normal-forms.html) instead; the refutation then says which new atom stands for which subformula, in `refutation.definitions`.
+
+### Unresolved
+
+Satisfiability is the original NP-complete problem, and some formulas are hard for every known method. The search counts its steps and stops at its `budget` (200,000 by default) with a third answer.
+
+```js
+satisfiable(hardFormula, { budget: 1000 });
+// { status: "unresolved", budget: 1000, reason: "the search used its budget of 1000 steps without an answer" }
+```
+
+"Unresolved" is not "no". Nothing in the library reports a verdict it cannot back.
+
+### The functions
+
+| Call | status and evidence |
+
+| satisfiable(f) (a formula or a list) | "satisfiable" with model; "unsatisfiable" with refutation. |
+
+| valid(f) | "valid" with refutation (of the negation); "invalid" with countermodel. |
+
+| entails(premises, conclusion) | The same; the countermodel makes the premises true and the conclusion false. |
+
+| equivalent(a, b) | "equivalent" with refutation; "different" with witness and values. |
+
+| classify(f) | kind: "tautology", "contradiction" or "contingent", with trueUnder and falseUnder. |
+
+| satisfiableClauses(clauses) | The solver on clauses given directly. |
+
+Every one may also answer `"unresolved"`. Options: `budget`, and `method` (`"auto"`, `"distribute"`, `"tseitin"`) for how the clauses are made.
+
+### Try it
+
+```js
+// A puzzle. Three suspects; exactly one is guilty; each makes a statement,
+// and exactly one statement is true.
+//   Ann: "Bo did it."    Bo: "I did not."    Cy: "I did not."
+const exactlyOne = (a, b, c) => `((${a} | ${b} | ${c}) & ~(${a} & ${b}) & ~(${a} & ${c}) & ~(${b} & ${c}))`;
+const facts = [
+  exactlyOne("ann", "bo", "cy"),                 // who is guilty
+  exactlyOne("bo", "~bo", "~cy"),                // which statement is true
+];
+const r = satisfiable(facts);
+PRINT("a solution:", JSON.stringify(r.model));
+
+// Is it the only one? Ask whether the facts entail it.
+const e = entails(facts, "cy");
+PRINT("the facts entail that Cy did it:", e.status);
+PRINT("the proof, as a resolution refutation of 'the facts, and not Cy':");
+PRINT(String(e.refutation));
+PRINT("checked independently:", JSON.stringify(e.refutation.check()));
+
+// And a question with no quick answer is cut off, not guessed.
+const pigeons = [];
+for (let i = 0; i < 7; i++) pigeons.push(Array.from({ length: 6 }, (_, j) => `p${i}_${j}`));
+for (let j = 0; j < 6; j++) for (let i = 0; i < 7; i++) for (let k = i + 1; k < 7; k++) pigeons.push([`~p${i}_${j}`, `~p${k}_${j}`]);
+satisfiableClauses(pigeons, { budget: 500 }).reason
+```
+
+---
+
+Page: https://ratmath.com/logic/simplification.html
+
+Topic
+
+## Simplification
+
+`simplify` returns a shortest "or of ands" or "and of ors" with the same truth table as the formula it is given. `minimize` shows the working: every prime implicant, which are essential, and which were chosen.
+
+### What it does
+
+```js
+import { simplify, minimize, primeImplicants } from "@ratmath/logic";
+
+String(simplify("(p & q) | (p & ~q)"));                 // "p"
+String(simplify("(a & b) | (~a & c) | (b & c)"));       // "(a ∧ b) ∨ (¬a ∧ c)": the third term was redundant
+String(simplify("(p -> q) & (q -> r)", { form: "cnf" }));   // "(¬p ∨ q) ∧ (¬q ∨ r)"
+```
+
+The second line is the consensus theorem: whenever b∧c holds, one of a∧b and ¬a∧c holds already, whichever way a falls.
+
+### Implicants and primes
+
+A term (an "and" of literals) is an implicant of f if f is true whenever the term is. Each true row of the table is an implicant with every atom mentioned. Two implicants that differ in one atom, such as p∧q and p∧¬q, merge into one that leaves the atom out, p, because (A∧x)∨(A∧¬x)≡A. An implicant that cannot be merged further is prime.
+
+The Quine–McCluskey method finds all the primes by merging in rounds, starting from the true rows, until nothing merges. A shortest disjunctive form is always a choice of primes, so what is left is a covering problem: pick the fewest primes so that every true row lies under at least one.
+
+- A prime is essential if some true row lies under it and under no other prime. Essential primes are in every solution.
+
+- For the rows not yet covered, the library searches for the smallest set of the remaining primes, fewest terms first and fewest literals among those.
+
+```js
+const m = minimize("(p & q) | (~p & r)");
+m.primes.map((x) => `${x.formula}${x.essential ? "  essential" : ""}${x.chosen ? "" : "  not needed"}`);
+// ["p ∧ q  essential", "q ∧ r  not needed", "¬p ∧ r  essential"]
+String(m.formula);    // "(p ∧ q) ∨ (¬p ∧ r)"
+m.terms; m.literals;  // 2, 4
+```
+
+When no prime is essential the choice is real. The function true on rows 0, 1, 2, 5, 6, 7 of three atoms has six primes arranged in a ring, each row under exactly two of them, and two different shortest forms of three terms each.
+
+### Products of sums
+
+The shortest conjunctive form comes from the same method applied to the negation: minimise ¬f as an "or of ands", then negate, and De Morgan's laws turn it into an "and of ors" for f. `simplify` with `form: "auto"` (the default) computes both and returns the shorter.
+
+### Rows that do not matter
+
+Sometimes certain inputs cannot occur, and the formula may take either value there. Naming those rows with `dontCare` lets the primes grow through them, and the result is right on every row that matters.
+
+```js
+// A digit 0 to 9 in four bits, a the leading bit: "is the digit at least 5?" Rows 10 to 15 never occur.
+const atLeast5 = "(~a & b & (c | d)) | (a & ~b & ~c)";   // true on rows 5, 6, 7, 8, 9
+const never = "a & (b | c)";                              // true on rows 10 to 15
+String(simplify(atLeast5));                               // "(a ∧ ¬b ∧ ¬c) ∨ (¬a ∧ b ∧ c) ∨ (¬a ∧ b ∧ d)"
+String(simplify(atLeast5, { dontCare: never, form: "dnf" }));   // "a ∨ (b ∧ c) ∨ (b ∧ d)"
+String(simplify(atLeast5, { dontCare: never }));          // "(a ∨ b) ∧ (a ∨ c ∨ d)": the product of sums is shorter still
+```
+
+### Limits
+
+The method works from the table, so it takes at most 14 atoms. The number of primes can itself be large, and the covering step is a hard problem in general; it runs within a budget and `minimize(...).exact` is `false` if the budget ran out, in which case the answer is correct and short but perhaps not the shortest. "Shortest" here means shortest in two levels: a formula like a⊕b⊕c has no short two-level form at all.
+
+### The functions
+
+| Call | Returns |
+
+| simplify(f, { form, dontCare }) | A shortest formula. form: "auto" (default), "dnf" or "cnf". |
+
+| minimize(f, { form, dontCare }) | { formula, form, terms, literals, exact, primes }; each prime has formula, rows, essential, chosen. |
+
+| primeImplicants(f) | The prime implicants, as formulas. |
+
+### Try it
+
+```js
+// A seven-segment display: when is the top bar lit? The digit is abcd in binary, a leading.
+// Lit for 0, 2, 3, 5, 6, 7, 8, 9; digits 10 to 15 never occur.
+const names = ["a", "b", "c", "d"];
+const lit = fromMinterms(names, [0, 2, 3, 5, 6, 7, 8, 9]);
+const never = fromMinterms(names, [10, 11, 12, 13, 14, 15]);
+
+PRINT("straight from the table:", lit.size, "symbols");
+const plain = minimize(lit);
+PRINT("shortest sum of products:", plain.formula, ` (${plain.terms} terms, ${plain.literals} literals)`);
+const free = minimize(lit, { dontCare: never });
+PRINT("using the rows that never occur:", free.formula, ` (${free.terms} terms, ${free.literals} literals)`);
+PRINT("as a product of sums:", minimize(lit, { dontCare: never, form: "cnf" }).formula);
+
+PRINT("\nthe primes, and the rows each covers:");
+for (const p of free.primes) PRINT(" ", String(p.formula).padEnd(10), JSON.stringify(p.rows), p.essential ? "essential" : p.chosen ? "chosen" : "");
+
+// The result agrees with the table on every digit:
+[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => free.formula.evaluate({ a: d >> 3 & 1, b: d >> 2 & 1, c: d >> 1 & 1, d: d & 1 }) ? "█" : "·").join("")
+```
+
+---
+
+Page: https://ratmath.com/logic/natural-deduction.html
+
+Topic
+
+## Natural deduction
+
+A natural deduction proof is a numbered list of lines, each a premise, an assumption that opens a subproof, or the result of a rule applied to earlier lines. `checkProof` reads one as it would be written on paper and checks every line against a rule set.
+
+### Writing a proof
+
+One line holds an optional number, bars for the depth of the subproof, the formula, and the reason. Bars may be `|` or `│`; rule names may be typed as `->E`, `→E`, `MP` or `modus ponens`.
+
+```js
+import { checkProof, parseProof } from "@ratmath/logic";
+
+const text = `
+1. p -> q      premise
+2. ~q          premise
+3. | p         assumption
+4. | q         ->E 1, 3
+5. | _|_       ~E 4, 2
+6. ~p          ~I 3-5`;
+
+const result = checkProof(text);
+result.status;              // "proof"
+result.proves;              // "p → q, ¬q ⊢ ¬p"
+String(parseProof(text));   // the same proof, set out with │ bars and proper symbols
+```
+
+A line may cite any earlier line that is still in reach: a line of the proof itself, or of a subproof that is still open. A subproof that has ended can be cited only as a whole, as `3-5` above. That restriction is the whole point of the bars: what was derived under an assumption depends on it.
+
+### When a line fails
+
+Every error names the line, the rule, and what the rule needed and did not find. Checking does not stop at the first one.
+
+```js
+checkProof(`
+1. p -> q      premise
+2. q           premise
+3. p           ->E 1, 2
+4. | r         assumption
+5. | p         R 3
+6. r -> p      ->I 4-5
+7. r           R 4`).errors.map((e) => e.message);
+// [ 'line 3: to give "p", →E needs a line reading "φ → p"; line 1 reads "p → q"',
+//   'line 7: it cites line 4, which is inside the subproof 4-5 that has ended;
+//    only the subproof as a whole can be cited now' ]
+```
+
+Give the argument being proved and the checker also says whether the proof is finished. A proof whose lines all check but which has not reached the conclusion is `"incomplete"`, which is a different thing from wrong.
+
+```js
+checkProof(text, { premises: "p -> q, ~q", conclusion: "~p" }).status;   // "proof"
+checkProof(text, { conclusion: "q" }).note;
+// 'every line checks, but the last line is "¬p", not the conclusion "q"'
+```
+
+### The rules
+
+Each connective has a rule that introduces it and a rule that eliminates it. Writing A⊢B for a subproof that assumes A and reaches B:
+
+| Rule | From | Infer |
+
+| ∧I, ∧E | A and B; A∧B | A∧B; either part |
+
+| ∨I | A | A∨B or B∨A |
+
+| ∨E | A∨B, A⊢C, B⊢C | C |
+
+| →I | A⊢B | A→B |
+
+| →E | A→B and A | B |
+
+| ¬I | A⊢⊥ | ¬A |
+
+| ¬E | A and ¬A | ⊥ |
+
+| ⊥E | ⊥ | anything |
+
+| ↔I, ↔E | A⊢B and B⊢A; A↔B and one side | A↔B; the other side |
+
+| R | A | A again, inside a subproof |
+
+| IP | ¬A⊢⊥ | A (classical) |
+
+| DNE, LEM | ¬¬A; nothing | A; A∨¬A (classical) |
+
+The rules above the last two lines are intuitionistic logic: a proof built from them is a construction. Adding any one of `IP`, `DNE` or `LEM` gives classical logic, where every formula true in all rows of its truth table has a proof. The two are kept as separate rule sets, and a classical step in an intuitionistic proof is reported as exactly that:
+
+```js
+import { rules } from "@ratmath/logic";
+
+const dne = `1. ~~p   premise
+2. p     DNE 1`;
+checkProof(dne).status;                                              // "proof": the default is rules.classical
+checkProof(dne, { rules: rules.intuitionistic }).errors[0].message;
+// "line 2: DNE is a classical rule and is not in this rule set (intuitionistic natural deduction)"
+```
+
+`rules.derived` is classical logic with the usual shortcuts: `MT` (modus tollens), `DS` (disjunctive syllogism), `HS` (hypothetical syllogism), `DNI` and `DeM` (De Morgan's laws).
+
+### Rules are data
+
+A rule is a name, some other names it answers to, and one or more forms. A form lists what the rule needs, with `A ⊢ B` standing for a subproof, and what it gives. The checker has no rule built in: it matches a line against the forms of the rule the line names.
+
+```js
+import { ruleSet } from "@ratmath/logic";
+
+rules.intuitionistic.rules.find((r) => r.name === "∨E").forms;
+// [ { from: ["A ∨ B", "A ⊢ C", "B ⊢ C"], infer: "C" } ]
+
+// A course that allows modus tollens and the constructive dilemma, and nothing classical:
+const course = ruleSet("Logic 101", [
+  ...rules.intuitionistic.rules,
+  { name: "MT", aliases: ["modus tollens"], forms: [{ from: ["A → B", "¬B"], infer: "¬A" }] },
+  { name: "CD", aliases: ["dilemma"], forms: [{ from: ["A ∨ B", "A → C", "B → D"], infer: "C ∨ D" }] },
+], { logic: "intuitionistic" });
+
+checkProof(`1. p | q    premise
+2. p -> r   premise
+3. q -> s   premise
+4. r | s    dilemma 1, 2, 3`, { rules: course }).status;   // "proof"
+```
+
+The checker does not ask whether a rule you add is sound. That is a question [`entails`](https://ratmath.com/logic/satisfiability.html) answers: a form is sound when its `from` entails its `infer`.
+
+### Reference
+
+| Export | What it does |
+
+| checkProof(proof, { rules, premises, conclusion }) | { status, ok, complete, errors, note, proves, lines, rules }; status is "proof", "incomplete" or "errors". |
+
+| parseProof(text, { rules }) | A Proof: lines of { n, depth, formula, rule, cites }, and toString({ style }). |
+
+| rules.intuitionistic, rules.classical, rules.derived | The rule sets that come with the library. |
+
+| ruleSet(name, list, { logic }) | A rule set from rules written as data; find(name) looks a rule up by any of its names. |
+
+| proofState(proof) | Which subproofs are open and closed after the last line. |
+
+### Try it
+
+```js
+// Contraposition, proved by hand. Break a line and run again to see what the checker says:
+// try citing 1, 2 on line 4, or dropping the bars on line 5.
+const text = `
+1. p -> q        premise
+2. | ~q          assumption
+3. | | p         assumption
+4. | | q         ->E 1, 3
+5. | | _|_       ~E 4, 2
+6. | ~p          ~I 3-5
+7. ~q -> ~p      ->I 2-6`;
+
+const result = checkProof(text, { rules: rules.intuitionistic, conclusion: "~q -> ~p" });
+PRINT(String(parseProof(text)));
+PRINT("status:", result.status, " proves:", result.proves);
+for (const e of result.errors) PRINT(e.message);
+
+// The converse direction needs classical logic. With rules.intuitionistic this line is refused:
+checkProof(`1. ~q -> ~p   premise
+2. | p         assumption
+3. | | ~q      assumption
+4. | | ~p      ->E 1, 3
+5. | | _|_     ~E 2, 4
+6. | q         IP 3-5
+7. p -> q      ->I 2-6`, { rules: rules.intuitionistic }).errors.map((e) => e.message)
+```
+
+---
+
+Page: https://ratmath.com/logic/sequents.html
+
+Topic
+
+## Sequent calculus
+
+A sequent Γ⊢Δ says: if everything on the left holds, something on the right does. A derivation takes a sequent apart one connective at a time until only axioms are left. Read from the bottom up it is a search procedure, which is why this is the calculus the library searches in.
+
+### Deriving a sequent
+
+```js
+import { proveSequent } from "@ratmath/logic";
+
+const found = proveSequent("p -> q, q -> r |- p -> r");
+found.status;                // "proved"
+String(found.derivation);
+// 1. q → r, p ⊢ r, p        Ax
+// 2. p, q ⊢ r, q            Ax
+// 3. p, q, r ⊢ r            Ax
+// 4. q → r, p, q ⊢ r        →L 2, 3
+// 5. p → q, q → r, p ⊢ r    →L 1, 4
+// 6. p → q, q → r ⊢ p → r   →R 5
+found.derivation.check().ok; // true: checked again, line by line
+```
+
+The last line is the sequent proved. Each line above it follows from the lines it cites by one rule, and a line marked `Ax` has the same formula on both sides (or ⊥ on the left, or ⊤ on the right).
+
+### The rules
+
+Each connective has a left rule and a right rule. Read upward, a rule replaces a formula by its parts:
+
+| Rule | To derive | Derive |
+
+| ∧L | Γ,A∧B⊢Δ | Γ,A,B⊢Δ |
+
+| ∧R | Γ⊢Δ,A∧B | Γ⊢Δ,A and Γ⊢Δ,B |
+
+| ∨L | Γ,A∨B⊢Δ | Γ,A⊢Δ and Γ,B⊢Δ |
+
+| ∨R | Γ⊢Δ,A∨B | Γ⊢Δ,A,B |
+
+| →L | Γ,A→B⊢Δ | Γ⊢Δ,A and Γ,B⊢Δ |
+
+| →R | Γ⊢Δ,A→B | Γ,A⊢Δ,B |
+
+| ¬L, ¬R | Γ,¬A⊢Δ; Γ⊢Δ,¬A | Γ⊢Δ,A; Γ,A⊢Δ |
+
+This is the calculus G3cp. Every one of its rules is invertible: the sequent below is valid exactly when the sequents above are. So the search never has to go back on a choice, it always ends, and a branch that ends at a sequent of atoms that is not an axiom gives a countermodel: make the atoms on the left true and those on the right false.
+
+```js
+proveSequent("p -> q |- q -> p");
+// { status: "invalid", countermodel: { p: false, q: true } }
+```
+
+### The intuitionistic calculus
+
+Intuitionistic logic is the same rules with one restriction: at most one formula on the right. The restriction is what removes the law of the excluded middle. In the classical derivation of p∨¬p the right side holds two formulas at once, which the restricted calculus forbids:
+
+```js
+String(proveSequent("|- p | ~p").derivation);
+// 1. p ⊢ p      Ax
+// 2. ⊢ p, ¬p    ¬R 1
+// 3. ⊢ p ∨ ¬p   ∨R 2
+
+const result = proveSequent("|- p | ~p", { logic: "intuitionistic" });
+result.status;             // "unprovable"
+result.classicallyValid;   // true
+String(result.kripke);
+// world 0: nothing true yet
+// world 1 (after world 0): p true
+```
+
+When there is no intuitionistic derivation the answer comes with a Kripke model: stages of knowledge, where what is known stays known. A conditional or a negation holds at a stage when it holds at every later stage. At world 0 above, p is not yet known, and ¬p fails because p becomes known later, so p∨¬p does not hold. `forces(model, world, formula)` evaluates a formula at a world, and the search checks its own countermodel with it before returning.
+
+The double negation of the excluded middle is provable, as Glivenko's theorem says the double negation of every classical tautology is:
+
+```js
+String(proveSequent("|- ~~(p | ~p)", { logic: "intuitionistic" }).derivation);
+// 1. ¬(p ∨ ¬p), p ⊢ p        Ax
+// 2. ¬(p ∨ ¬p), p ⊢ p ∨ ¬p   ∨R1 1
+// 3. ¬(p ∨ ¬p), p ⊢ ⊥        ¬L 2
+// 4. ¬(p ∨ ¬p) ⊢ ¬p          ¬R 3
+// 5. ¬(p ∨ ¬p) ⊢ p ∨ ¬p      ∨R2 4
+// 6. ¬(p ∨ ¬p) ⊢ ⊥           ¬L 5
+// 7. ⊢ ¬¬(p ∨ ¬p)            ¬R 6
+```
+
+In this calculus (G3ip) the rules `∨R1`, `∨R2` and `→L` are not invertible, so the search has to try alternatives and come back. It does so within a budget, and answers `"unresolved"` if the budget runs out before it has either a derivation or a countermodel.
+
+### Checking a derivation
+
+```js
+import { checkDerivation, calculi } from "@ratmath/logic";
+
+const text = `
+1. p, q |- q        Ax
+2. p, q |- p        Ax
+3. p, q |- q & p    &R 1, 2
+4. p & q |- q & p   &L 3`;
+checkDerivation(text).proves;      // "p ∧ q ⊢ q ∧ p"
+
+checkDerivation(text.replace("&R", "|R")).errors[0].message;
+// "line 3: ∨R works on a formula of the form A ∨ B on the right, and p, q ⊢ q ∧ p has none"
+
+calculi.classical.rules["→L"];
+// { side: "L", kind: "imp", premises: [{ right: ["A"] }, { left: ["B"] }] }
+```
+
+A calculus is a table of such rules: the side, the connective, and for each premise what replaces the formula. `calculus(name, table, { maxRight })` builds one of your own.
+
+### Reference
+
+| Export | What it does |
+
+| proveSequent(sequent, { logic, budget }) | "proved" with a derivation, "invalid" with a countermodel, "unprovable" with a kripke model, or "unresolved". |
+
+| sequent(text), sequent(left, right) | A Sequent with left and right; the turnstile may be typed \|-. |
+
+| checkDerivation(text or Derivation, { calculus }) | { ok, errors, proves, lines, calculus }. |
+
+| parseDerivation(text, { calculus }) | A Derivation tree: sequent, rule, premises, lines(), size, check(). |
+
+| calculi.classical, calculi.intuitionistic | G3cp and G3ip as data. |
+
+| calculus(name, rules, { maxRight, logic }) | A calculus from a rule table. |
+
+| forces(model, world, formula) | Whether a formula holds at a world of a Kripke model { parent, holds }. |
+
+### Try it
+
+```js
+// Five laws, in both logics. Classical logic proves all five; intuitionistic logic proves two,
+// and for the others it shows the stages of knowledge at which they fail.
+const laws = {
+  "excluded middle": "|- p | ~p",
+  "double negation": "~~p |- p",
+  "Peirce's law": "|- ((p -> q) -> p) -> p",
+  "contraposition": "p -> q |- ~q -> ~p",
+  "De Morgan": "~(p | q) |- ~p & ~q",
+};
+for (const [name, s] of Object.entries(laws)) {
+  const c = proveSequent(s);
+  const i = proveSequent(s, { logic: "intuitionistic" });
+  PRINT(name.padEnd(16), "classical:", c.status, `(${c.derivation.size} lines)`, " intuitionistic:", i.status);
+  if (i.status === "unprovable") PRINT(String(i.kripke).replace(/^/gm, "    "));
+}
+
+// The intuitionistic derivation of contraposition:
+String(proveSequent(laws.contraposition, { logic: "intuitionistic" }).derivation)
+```
+
+---
+
+Page: https://ratmath.com/logic/truth-trees.html
+
+Topic
+
+## Truth trees
+
+A truth tree asks whether some formulas can all be true at once, by breaking them into parts. A branch that comes to hold a formula and its negation closes. If every branch closes, the formulas cannot be true together; an open branch that has been fully worked out describes a way they can.
+
+### Testing an argument
+
+To test an argument, put the premises and the negation of the conclusion at the root. The argument is valid exactly when the tree closes.
+
+```js
+import { tableauProof } from "@ratmath/logic";
+
+const result = tableauProof("p -> q, q -> r", "p -> r");
+result.status;             // "valid"
+String(result.tableau);
+// 1. p → q   premise
+// 2. q → r   premise
+// 3. ¬(p → r)   negated conclusion
+// 4. p   ¬→ 3
+// 5. ¬r   ¬→ 3
+// ├─
+// │  6. ¬p   → 1
+// │  ✗ 4, 6
+// └─
+//    7. q   → 1
+//    ├─
+//    │  8. ¬q   → 2
+//    │  ✗ 7, 8
+//    └─
+//       9. r   → 2
+//       ✗ 5, 9
+```
+
+Each line names the rule and the line it was applied to. A branch ends in `✗` with the two lines that contradict each other. When a branch stays open, its atoms are a countermodel:
+
+```js
+const bad = tableauProof("p -> q", "q -> p");
+bad.status;          // "invalid"
+bad.countermodel;    // { p: false, q: true }
+String(bad.tableau);
+// 1. p → q   premise
+// 2. ¬(q → p)   negated conclusion
+// 3. q   ¬→ 2
+// 4. ¬p   ¬→ 2
+// ├─
+// │  5. ¬p   → 1
+// │  ○ open
+// └─
+//    6. q   → 1
+//    ⋯ not continued
+```
+
+One open branch settles the question, so the others are not continued. Pass `{ all: true }` to work out every branch.
+
+### The rules
+
+A rule either extends a branch or splits it. The rules that extend are applied first, which keeps trees small.
+
+| Formula | Add to the branch | Or split into |
+
+| ¬¬A | A | |
+
+| A∧B | A, B | |
+
+| ¬(A∨B) | ¬A, ¬B | |
+
+| ¬(A→B) | A, ¬B | |
+
+| A∨B | | A \| B |
+
+| ¬(A∧B) | | ¬A \| ¬B |
+
+| A→B | | ¬A \| B |
+
+| A↔B | | A,B \| ¬A,¬B |
+
+| ¬(A↔B) | | A,¬B \| ¬A,B |
+
+Each rule says: the formula is true exactly when everything on one of its branches is. That is why the method is sound and complete: truth is carried down some branch at every step, and an open finished branch has had every formula on it accounted for. The rules are exported as data in `tableauRules`, each a pattern and its branches.
+
+### Satisfiability directly
+
+```js
+import { tableau, checkTableau } from "@ratmath/logic";
+
+const t = tableau("p | q, ~p");
+t.status;            // "open"
+t.model;             // { p: false, q: true }
+checkTableau(t);     // { ok: true, closed: false, errors: [], model: { p: false, q: true } }
+```
+
+`checkTableau` goes over a finished tree with separate code: every line must follow from the line it cites by the rule it names, every closed branch must hold the contradiction it claims, and a model read from an open branch must make the root formulas true. A tree that would pass a budget of lines (20,000 unless you say otherwise) is returned as `"unresolved"`.
+
+### Reference
+
+| Export | What it does |
+
+| tableau(formulas, { budget, all }) | A Tableau: status ("closed", "open", "unresolved"), closed, model, lines, branches, root, toString(). |
+
+| tableauProof(premises, conclusion, options) | "valid" with the closed tableau, or "invalid" with a countermodel and the tree. |
+
+| checkTableau(tableau) | { ok, closed, errors, model }. |
+
+| tableauRules | The rules: { name, pattern, branches }. |
+
+### Try it
+
+```js
+// A dilemma. Two of the three people are lying; who took the cake?
+//   a: "b took it."   b: "I did not."   c: "I did not."
+// Exactly one person took it, and exactly one of the three statements is true.
+const oneOf = (x, y, z) => `((${x} & ~${y} & ~${z}) | (~${x} & ${y} & ~${z}) | (~${x} & ~${y} & ${z}))`;
+const facts = [oneOf("a", "b", "c"), oneOf("b", "~b", "~c")];
+
+const t = tableau(facts, { all: true });
+PRINT("status:", t.status, " lines:", t.lines, " branches:", t.branches);
+PRINT("model:", JSON.stringify(t.model));
+PRINT("so c took the cake:", tableauProof(facts, "c").status);
+
+// A smaller tree to read in full: the disjunctive syllogism.
+String(tableauProof("a | b, ~a", "b").tableau)
+```
+
+---
+
+Page: https://ratmath.com/logic/resolution.html
+
+Topic
+
+## Resolution
+
+Resolution is a proof system with a single rule, working on clauses. It is the form in which the solver hands over its evidence: when it says a formula is valid, it gives a resolution refutation that a few lines of code can check.
+
+### The rule
+
+A clause is a disjunction of literals. If one clause contains x and another contains ¬x, then whichever way x goes, one of the remaining parts must be true:
+
+C∨DC∨xD∨¬x​
+
+The clause below the line is the resolvent on x. Resolving x against ¬x leaves the empty clause □, which nothing satisfies. A list of clauses is unsatisfiable exactly when □ can be reached from it by resolution: such a derivation is a refutation.
+
+```js
+import { clause, resolve, showClause } from "@ratmath/logic";
+
+showClause(resolve(clause("p, q"), clause("~p, r"), "p"));   // "q ∨ r"
+```
+
+### Proofs from the solver
+
+To show that premises entail a conclusion, refute the premises together with the negated conclusion. `entails` and `valid` do this and return the refutation.
+
+```js
+import { entails } from "@ratmath/logic";
+
+const result = entails("p -> q, q -> r", "p -> r");
+result.status;                 // "valid"
+String(result.refutation);
+// 1. p        premise
+// 2. ¬p ∨ q   premise
+// 3. ¬q ∨ r   premise
+// 4. ¬r       premise
+// 5. ¬q       resolve 4, 3 on r
+// 6. ¬p       resolve 5, 2 on q
+// 7. □        resolve 6, 1 on p
+result.refutation.check();     // { ok: true, refutation: true, errors: [] }
+```
+
+The premises of the refutation are the clauses of (p→q)∧(q→r)∧¬(p→r). For a large formula the clauses come from the [Tseitin form](https://ratmath.com/logic/normal-forms.html), and the refutation records the definitions it used in `definitions`.
+
+The solver is a DPLL search: it sets a variable, simplifies, and backs out when a clause becomes false. Each time it backs out it has, in effect, resolved two clauses, and the refutation is the record of those steps. The search is the complicated part and the check is the simple part, so a mistake in the search cannot produce a wrong "valid".
+
+### Checking a refutation written by hand
+
+```js
+import { checkResolution } from "@ratmath/logic";
+
+const text = `
+1. {p, q}     premise
+2. {~p, q}    premise
+3. {~q}       premise
+4. {q}        resolve 1, 2 on p
+5. {}         resolve 4, 3 on q`;
+checkResolution(text);          // { ok: true, refutation: true, errors: [] }
+
+checkResolution(text.replace("on p", "on q")).errors[0].message;
+// "line 4: lines 1 and 2 do not clash on q: one must contain q and the other ¬q"
+```
+
+Clauses may be written with braces and commas or as disjunctions. Pass `{ premises }` to require that every premise line is one of the clauses you were given. `refutation` is true when the proof is correct and reaches the empty clause.
+
+### Reference
+
+| Export | What it does |
+
+| clause(text or literals), literal(text) | A clause as a sorted list of literals such as "p" and "¬q". |
+
+| resolve(c1, c2, atom) | The resolvent on that atom; refuses if the clauses do not clash on it. |
+
+| showClause(c) | "p ∨ ¬q", or "□" for the empty clause. |
+
+| ResolutionProof | steps of { n, clause, from, pivot }, premises, definitions, method, check(), toString(). |
+
+| parseResolution(text), checkResolution(proof, { premises }) | Read and check a refutation: { ok, refutation, errors }. |
+
+| satisfiableClauses(clauses, { budget }) | The solver on clauses directly: a model or a refutation. |
+
+### Try it
+
+```js
+// The pigeonhole principle: three pigeons do not fit in two holes, one to a hole.
+// "p12" reads: pigeon 1 sits in hole 2.
+const pigeons = [1, 2, 3], holes = [1, 2];
+const clauses = [];
+for (const i of pigeons) clauses.push(clause(holes.map((h) => `p${i}${h}`)));              // every pigeon has a hole
+for (const h of holes)
+  for (const i of pigeons)
+    for (const j of pigeons) if (i < j) clauses.push(clause([`~p${i}${h}`, `~p${j}${h}`])); // no hole has two
+
+const result = satisfiableClauses(clauses);
+PRINT("status:", result.status);
+PRINT(String(result.refutation));
+PRINT("checked:", JSON.stringify(result.refutation.check()));
+
+// With three holes there is room, and the answer is a seating:
+const roomy = satisfiableClauses([
+  ...pigeons.map((i) => clause([1, 2, 3].map((h) => `p${i}${h}`))),
+  ...[1, 2, 3].flatMap((h) => [[1, 2], [1, 3], [2, 3]].map(([i, j]) => clause([`~p${i}${h}`, `~p${j}${h}`]))),
+]);
+Object.entries(roomy.model).filter(([, v]) => v).map(([k]) => k).join(" ")
+```
+
+---
+
+Page: https://ratmath.com/logic/proof-search.html
+
+Topic
+
+## Proof search and hints
+
+`prove` writes a natural deduction proof of an argument, or shows why there is none. `hint` looks at a proof someone has started and gives the next line, and only the next line.
+
+### A proof, written for you
+
+```js
+import { prove } from "@ratmath/logic";
+
+const found = prove("p -> q", "~q -> ~p");
+found.status;           // "proved"
+String(found.proof);
+// 1. p → q     premise
+// 2. │ ¬q      assumption
+// 3. │ │ p     assumption
+// 4. │ │ q     →E 1, 3
+// 5. │ │ ⊥     ¬E 4, 2
+// 6. │ ¬p      ¬I 3-5
+// 7. ¬q → ¬p   →I 2-6
+```
+
+The proof uses the introduction and elimination rules only, so it reads the way a textbook proof does: to prove a conditional, assume its left side; to use a disjunction, take cases. Every proof returned has been through [`checkProof`](https://ratmath.com/logic/natural-deduction.html), and lines that turned out not to be needed are removed.
+
+### Three honest answers
+
+An argument that is not valid has no proof in any system, and the answer is a countermodel:
+
+```js
+prove("p -> q, q", "p");
+// { status: "invalid", countermodel: { p: false, q: true } }
+```
+
+Classical proofs are built from intuitionistic rules where those are enough, and use indirect proof (`IP`) only where it is needed. Ask for `logic: "intuitionistic"` and a formula that needs it is reported as unprovable, with the Kripke model that shows why (see [Sequent calculus](https://ratmath.com/logic/sequents.html)):
+
+```js
+String(prove("", "p | ~p").proof);
+// 1. │ ¬(p ∨ ¬p)   assumption
+// 2. │ │ p         assumption
+// 3. │ │ p ∨ ¬p    ∨I 2
+// 4. │ │ ⊥         ¬E 3, 1
+// 5. │ ¬p          ¬I 2-4
+// 6. │ p ∨ ¬p      ∨I 5
+// 7. │ ⊥           ¬E 6, 1
+// 8. p ∨ ¬p        IP 1-7
+
+const result = prove("", "p | ~p", { logic: "intuitionistic" });
+result.status;             // "unprovable"
+String(result.kripke);     // "world 0: nothing true yet\nworld 1 (after world 0): p true"
+```
+
+The search works within a budget of steps (two million unless you pass `budget`). If that runs out the answer is `{ status: "unresolved" }` with the reason. It is never a guess.
+
+### How the search works
+
+A proof is found in the [intuitionistic sequent calculus](https://ratmath.com/logic/sequents.html) and then translated, rule for rule, into natural deduction: a right rule becomes an introduction, a left rule becomes an elimination applied to a line already in reach. For classical logic the goal is first taken apart as far as the introduction rules go, and each remaining part A is proved by assuming ¬A and deriving ⊥, which by Glivenko's theorem the intuitionistic search can always do when A is a classical consequence.
+
+### Hints
+
+A hint is for someone in the middle of a proof. It continues from the lines already written, so it follows the writer's own approach wherever that can still succeed, and it gives one line.
+
+```js
+import { hint } from "@ratmath/logic";
+
+const soFar = `
+1. p -> q   premise
+2. q -> r   premise`;
+hint(soFar, { conclusion: "p -> r" }).text;                 // "3. │ p   assumption"
+
+const next = hint(soFar + "\n3. | p   assumption", { conclusion: "p -> r" });
+next.text;        // "4. │ q   →E 1, 3"
+next.goal;        // "r": what this part of the proof is working toward
+```
+
+Before giving a hint, the lines already there are checked, and other answers are possible:
+
+| Status | Meaning |
+
+| "hint" | line, its text, and the goal it works toward. |
+
+| "error" | A line already written does not check. The error names it; fix that first. |
+
+| "done" | The proof is complete. |
+
+| "invalid" | The conclusion does not follow, so there is nothing to finish; a countermodel is given. |
+
+| "stuck" | The open subproof cannot lead anywhere useful; the message says why. |
+
+| "unprovable" | Valid classically, but out of reach of the intuitionistic rule set in use. |
+
+| "unresolved" | The budget ran out. |
+
+Leave `premises` out and the premises are the ones the proof writes down. Name them and a missing premise becomes the first hint.
+
+### Reference
+
+| Export | What it does |
+
+| prove(premises, conclusion, { logic, budget }) | "proved" with a proof and its lines, "invalid" with a countermodel, "unprovable" with a kripke model, or "unresolved". |
+
+| hint(proof, { premises, conclusion, rules, budget }) | The next line of a proof in progress, as above. |
+
+### Try it
+
+```js
+// Let hints write a whole proof, one line at a time: each hint is appended and the next one asked for.
+const premises = "p | q, p -> r, q -> r";
+const conclusion = "r";
+
+let text = "";
+for (let step = 0; step < 40; step++) {
+  const h = hint(text, { premises, conclusion });
+  if (h.status !== "hint") {
+    PRINT("\n" + h.status + ":", h.message ?? "");
+    break;
+  }
+  PRINT(h.text.padEnd(28), "(toward " + h.goal + ")");
+  text += h.text + "\n";
+}
+
+// The same argument from prove, for comparison:
+String(prove(premises, conclusion).proof)
+```
+
+---
+
+Page: https://ratmath.com/logic/predicate-logic.html
+
+Topic
+
+## Predicate logic
+
+Propositional logic treats "Socrates is mortal" as one unbreakable letter. Predicate logic opens it up: a predicate applied to terms, with quantifiers saying "for every" and "for some". That is enough to write most of mathematics.
+
+### Writing formulas
+
+Predicates start with a capital letter (`Human(x)`, `Loves(x, y)`, or a bare `P` for a sentence letter). Function symbols and constants start with a small letter (`f(x)`, `socrates`). A name is a variable when a quantifier binds it, or when it is one of `u` to `z` (with digits or primes); any other small name is a constant. Identity is `=` and `≠`, and every propositional connective works as before.
+
+```js
+import { parseFO } from "@ratmath/logic";
+
+const f = parseFO("forall x. (Human(x) -> Mortal(x))");
+String(f);                          // "∀x (Human(x) → Mortal(x))"
+f.toString({ style: "ascii" });     // "forall x.(Human(x) -> Mortal(x))"
+f.toString({ style: "tex" });       // "\forall x (Human(x) \to Mortal(x))"
+f.isSentence;                       // true: no variable is free
+
+String(parseFO("∀x ∃y (f(x) ≠ y ∨ x = a)"));   // "∀x ∃y (f(x) ≠ y ∨ x = a)"
+```
+
+A quantifier reaches as far right as it can, so `∀x P(x) → Q(x)` would put the whole implication under ∀x; use parentheses to stop it. `∀`, `forall` and `\A` all mean the same, and so do `∃`, `exists` and `\E`.
+
+### Free and bound variables
+
+An occurrence of x is bound when it sits inside ∀x or ∃x, and free otherwise. A formula with no free variables is a sentence: it is true or false in a structure without anything more. With free variables it is true or false only once they are given values.
+
+Putting a term in for a free variable has one trap. In ∃yLoves(x,y) ("x loves someone"), putting y for x naively gives ∃yLoves(y,y) ("someone loves themselves"), a different statement: the new y was captured by the quantifier. `substitute` renames the bound variable first:
+
+```js
+const g = parseFO("∃y Loves(x, y)");
+g.freeVariables();                  // ["x"]
+String(g.substitute("x", "y"));     // "∃y1 Loves(y, y1)": still "y loves someone"
+parseFO("∀x P(x)").alphaEquals("∀y P(y)");   // true: the same up to the bound name
+```
+
+### Normal forms
+
+Every formula is equivalent to one in prenex form, with all its quantifiers at the front. The rules move a quantifier out past a connective: ∀xA→B becomes ∃x(A→B) when x is not free in B (the quantifier flips on the left of an arrow, since A→B is ¬A∨B). Bound variables are renamed when two would clash.
+
+Skolem form then removes each ∃: in ∀x∃yLoves(x,y) the y depends on x, so it is replaced by a new function, Loves(x,sk1​(x)). The result is not equivalent, but it is satisfiable exactly when the original is, which is all that refutation methods need.
+
+```js
+import { prenex, skolemize, foNnf } from "@ratmath/logic";
+
+String(prenex("∀x P(x) → ∃x Q(x)"));        // "∃x ∃x1 (¬P(x) ∨ Q(x1))"
+String(skolemize("∀x ∃y Loves(x, y)"));     // "∀x Loves(x, sk1(x))"
+String(skolemize("∃x ∀y Loves(y, x)"));     // "∀y Loves(y, c1)": no ∀ before it, so a constant
+String(foNnf("¬∀x (P(x) → ∃y R(x, y))"));   // "∃x (P(x) ∧ ∀y ¬R(x, y))"
+```
+
+### Reference
+
+| Export | What it does |
+
+| parseFO(text) | A FOFormula. Kinds: pred, eq, top, bot, not, the two-place connectives, all, ex. |
+
+| fo(x), foList(text \| array) | Accept a formula or text; a list may be written with commas. |
+
+| f.freeVariables(), f.isSentence, f.signature() | Free variables; whether there are none; the predicates, functions (with arities) and constants used. |
+
+| f.substitute(x, term) | Put a term for the free x, renaming bound variables so nothing is captured. |
+
+| f.alphaEquals(g) | Equal up to the names of bound variables. |
+
+| f.toString({ style }) | "unicode", "ascii" or "tex". |
+
+| parseTerm(text), Term | Terms: variables, constants and function applications. |
+
+| foNnf(f), prenex(f), skolemize(f) | Negation normal form; prenex form; Skolem form (equisatisfiable). |
+
+### Try it
+
+```js
+// Two sentences that look alike. Which variables are free, and what does
+// moving the quantifiers out give?
+const a = parseFO("∀x (P(x) → ∃y R(x, y))");
+const b = parseFO("∀x P(x) → ∃y R(x, y)");
+PRINT("a:", String(a), " sentence:", a.isSentence);
+PRINT("b:", String(b), " free:", b.freeVariables());
+PRINT("prenex a:", String(prenex(a)));
+PRINT("skolem a:", String(skolemize(a)));
+
+// Substitution that would capture, done safely
+String(parseFO("∀y (R(x, y) → ∃x R(x, y))").substitute("x", "f(y)"))
+```
+
+---
+
+Page: https://ratmath.com/logic/models.html
+
+Topic
+
+## Finite models
+
+A sentence is true or false in a structure: a set of things (the domain) with a meaning for each predicate, function and constant. On a finite domain, truth can simply be computed, and a search over small domains finds models and countermodels.
+
+### Structures and truth
+
+∀xA is true when A holds for every element put in for x, and ∃xA when it holds for at least one. On a finite domain that is a loop, and the loop knows why: which element is the witness to an ∃, and which is the counterexample to a ∀.
+
+```js
+import { structure, evaluate } from "@ratmath/logic";
+
+// three people, each loving the next round a circle
+const M = structure({ domain: [1, 2, 3], predicates: { L: [[1, 2], [2, 3], [3, 1]] } });
+
+evaluate("∀x ∃y L(x, y)", M);
+// { value: true, reason: "holds for every x in the domain" }
+evaluate("∃x ∀y L(x, y)", M).value;      // false: nobody loves everyone
+evaluate("∀x ∃y L(x, y)", M, { explain: true }).steps.slice(0, 2);
+// ["∀x ∃y L(x, y): true (holds for every x in the domain)",
+//  "  ∃y L(x, y) with x = 1: true (holds for y = 2)"]
+```
+
+Predicates are given as lists of the elements or tuples where they hold, or as functions. Functions may be tables or JavaScript functions; constants name elements.
+
+```js
+const N = structure({ domain: 4, constants: { zero: 0 },
+  functions: { s: (x) => (x + 1) % 4 }, predicates: { Even: [0, 2] } });
+evaluate("∀x (Even(x) ↔ ¬Even(s(x)))", N).value;   // true
+evaluate("Even(s(s(zero)))", N).value;             // true
+```
+
+### Searching for a model
+
+On a domain of n elements, a sentence becomes a propositional formula: ∀x turns into a conjunction over the n elements and ∃x into a disjunction, and each atom such as L(0,2) or f(1)=0 into a letter. Function symbols get one letter for each possible value, with clauses saying that exactly one value is taken. The [SAT solver](https://ratmath.com/logic/satisfiability.html) then looks for an assignment, and `findModel` reads the structure back and checks it by evaluation before returning it.
+
+```js
+import { findModel, countermodel } from "@ratmath/logic";
+
+const r = findModel("∀x f(f(x)) = x, ∃x f(x) ≠ x");   // a non-trivial involution
+r.status, r.size;                  // "found", 2
+r.model.describe().functions;      // { f: { "0": 1, "1": 0 } }
+
+findModel("∀x ∀y x = y, ∃x ∃y x ≠ y");   // { status: "none", upTo: 4 }
+```
+
+### Countermodels, and what search cannot do
+
+An argument is invalid when some structure makes the premises true and the conclusion false. `countermodel` looks for one:
+
+```js
+const c = countermodel("∀x ∃y L(x, y)", "∃y ∀x L(x, y)");
+c.status;                          // "invalid"
+c.countermodel.describe().predicates;   // { L: [[0, 0], [1, 1]] }: everyone loves only themselves
+```
+
+Not finding a countermodel proves nothing. First-order validity is undecidable (Church and Turing, 1936), and some sentences have only infinite models: a strict order with no largest element, for example. So an empty search is reported as `"unresolved"` with the size searched, never as "valid". Validity is shown by a proof or a closed tree; see [First-order proofs and trees](https://ratmath.com/logic/first-order-proofs.html).
+
+```js
+countermodel("∀x (H(x) → M(x)), H(s)", "M(s)");
+// { status: "unresolved", reason: "no countermodel with at most 4 elements", upTo: 4 }
+
+// irreflexive, transitive, and everything below something: only infinite models
+findModel("∀x ¬R(x, x), ∀x ∀y ∀z (R(x, y) ∧ R(y, z) → R(x, z)), ∀x ∃y R(x, y)", { maxSize: 5 });
+// { status: "none", upTo: 5 }
+```
+
+### Reference
+
+| Export | What it does |
+
+| structure({ domain, constants, functions, predicates }) | A Structure: domain, size, holds(f, env), term(t, env), describe() as plain data. |
+
+| evaluate(f, M, { assignment, explain }) | { value, reason }, with steps when explained. Free variables need values in assignment. |
+
+| findModel(sentences, { minSize, maxSize, budget }) | "found" with a checked model and size; "none" up to maxSize (4 unless you say); or "unresolved" at the solver's budget. |
+
+| countermodel(premises, conclusion, options) | "invalid" with a checked countermodel, or "unresolved". |
+
+### Try it
+
+```js
+// A puzzle as sentences: everyone is liked by someone, nobody likes themselves,
+// and liking is not mutual. What is the smallest world where all of that holds?
+const rules = [
+  "∀x ∃y Likes(y, x)",
+  "∀x ¬Likes(x, x)",
+  "∀x ∀y (Likes(x, y) → ¬Likes(y, x))",
+];
+const r = findModel(rules, { maxSize: 5 });
+PRINT(r.status, "with", r.size, "people");
+PRINT("who likes whom:", JSON.stringify(r.model.describe().predicates.Likes));
+for (const s of rules) PRINT(s, "→", evaluate(s, r.model).value);
+
+// Add "someone likes everyone else": that person would need an admirer,
+// whom they like back. No model of any size up to 5:
+findModel([...rules, "∃x ∀y (x ≠ y → Likes(x, y))"], { maxSize: 5 })
+```
+
+---
+
+Page: https://ratmath.com/logic/first-order-proofs.html
+
+Topic
+
+## First-order proofs and trees
+
+The proof systems for propositional logic extend to quantifiers with a few rules each. The care is all in the names: what may be said about "everything" from one example, and what may be concluded from "something".
+
+### Natural deduction
+
+`checkFOProof` reads the same layout as [propositional proofs](https://ratmath.com/logic/natural-deduction.html), with every propositional rule, and adds six:
+
+| Rule | From | Infer | Condition |
+
+| ∀E | ∀xA(x) | A(t) for any term t | |
+
+| ∃I | A(t) | ∃xA(x) | |
+
+| ∀I | A(c) | ∀xA(x) | c is in no premise or open assumption |
+
+| ∃E | ∃xA(x) and a subproof from A(c) to B | B | c is new: not in B, the premises, or ∃xA(x) |
+
+| =I | | t=t | |
+
+| =E | a=b and A | A with some a's written b (or b's written a) | |
+
+The conditions are what make the rules sound. ∀I generalises from c only if nothing was assumed about c, so c was an arbitrary choice. ∃E names the witness c, so c must not escape into the conclusion. The derived rule set adds CQ, the quantifier negation laws such as ¬∀xA⊢∃x¬A.
+
+```js
+import { checkFOProof } from "@ratmath/logic";
+
+checkFOProof(`1. ∀x (P(x) → Q(x))    premise
+2. ∀x P(x)             premise
+3. P(a) → Q(a)         ∀E 1
+4. P(a)                ∀E 2
+5. Q(a)                →E 3, 4
+6. ∀x Q(x)             ∀I 5`).proves;
+// "∀x (P(x) → Q(x)), ∀x P(x) ⊢ ∀x Q(x)"
+
+checkFOProof(`1. P(a)       premise
+2. ∀x P(x)    ∀I 1`).errors[0].message;
+// 'line 2: a occurs in the premise "P(a)", so what holds of a need not hold of everything'
+
+checkFOProof(`1. ∃x P(x)      premise
+2. | P(c)       assumption
+3. | P(c)       R 2
+4. P(c)         ∃E 1, 2-3`).errors[0].message;
+// 'line 4: c occurs in "P(c)", so the conclusion would say something about the witness'
+```
+
+### Truth trees
+
+A first-order [truth tree](https://ratmath.com/logic/truth-trees.html) has the propositional rules and four more. ∃xA (and ¬∀xA) is used once, with a new name: something is A, call it c1​. ∀xA (and ¬∃xA) may be used again for every name on the branch, and so is never used up. The tree tries names oldest first, so every name gets its turn.
+
+```js
+import { foTableau, showTableau } from "@ratmath/logic";
+
+const t = foTableau("∀x (H(x) → M(x)), H(s)", "M(s)");
+t.status;                 // "valid"
+showTableau(t.tree);
+// ∀x (H(x) → M(x))    (premise)
+// H(s)    (premise)
+// ¬M(s)    (negated conclusion)
+// H(s) → M(s)    (from ∀x (H(x) → M(x)), with s)
+// ┌ branch 1
+//   ¬H(s)    (from H(s) → M(s))
+//   × closed: H(s) and ¬H(s)
+// └ branch 2
+//   M(s)    (from H(s) → M(s))
+//   × closed: M(s) and ¬M(s)
+```
+
+A branch that stays open after every rule has been applied describes a countermodel: its names are the domain and its atoms say where each predicate holds. The model is checked against the root before it is returned.
+
+```js
+const u = foTableau("∃x P(x) ∧ ∃x Q(x)", "∃x (P(x) ∧ Q(x))");
+u.status;                          // "invalid"
+u.countermodel.describe().predicates;   // { P: ["c1"], Q: ["c2"] }: one thing is P, another is Q
+```
+
+Because a ∀ never gets used up, a tree for an invalid argument can grow without end: ∀x∃yL(x,y) makes a new name, which the ∀ applies to, which makes another. The tree stops at its budget and says `"unresolved"`. `foEntails` combines the methods: a short tree first, then a [countermodel search](https://ratmath.com/logic/models.html), then a longer tree.
+
+```js
+foTableau("∀x ∃y L(x, y)", "∃y ∀x L(x, y)", { budget: 200 }).reason;
+// "the tree was still growing after 200 steps"
+foEntails("∀x ∃y L(x, y)", "∃y ∀x L(x, y)").status;   // "invalid", from a 2-element countermodel
+```
+
+Every first-order consequence has a closed tree (Gödel's completeness theorem, 1929), so with enough budget "valid" is always found. "Invalid" can only be found when there is a finite countermodel: that is the undecidability again.
+
+### Reference
+
+| Export | What it does |
+
+| checkFOProof(text, { rules, premises, conclusion }) | The same report as checkProof: status ("proof" when it checks), errors, proves. |
+
+| parseFOProof(text, { rules }) | A Proof read from text. |
+
+| foRules.intuitionistic, .classical, .derived | Rule sets: the propositional rules lifted to first-order formulas, with ∀E ∃I ∀I ∃E =I =E; derived adds CQ. |
+
+| foTableau(premises, conclusion, { budget }) | "valid" with the closed tree; "invalid" with a checked countermodel; or "unresolved". With no conclusion, "valid" means the premises cannot all be true. |
+
+| showTableau(tree) | The tree as text. |
+
+| foEntails(premises, conclusion, { maxSize, budget }) | Tree, then countermodel search, then a longer tree. |
+
+### Try it
+
+```js
+// "There is a barber who shaves exactly those who do not shave themselves."
+// Start a tree from that sentence alone (no conclusion): every branch closes,
+// so it cannot be true in any structure, and no such barber exists.
+const barber = "∃x ∀y (S(x, y) ↔ ¬S(y, y))";
+const r = foTableau(barber);
+PRINT("every branch closes:", r.status === "valid");
+PRINT(showTableau(r.tree));
+
+// And the classic quantifier swap, in the right direction
+foEntails("∃y ∀x L(x, y)", "∀x ∃y L(x, y)").status
+```
+
+---
+
+Page: https://ratmath.com/logic/circuits.html
+
+Topic
+
+## Circuits and Karnaugh maps
+
+A circuit is a formula with its parts shared: gates wired together, with no loops. Two numbers describe its cost, the number of gates (size) and the longest path from an input to an output (depth, roughly the time a signal takes).
+
+### Building and running a circuit
+
+Gates are named, and each lists its kind and what it reads. The kinds are `and`, `or`, `xor`, `nand`, `nor`, `xnor` (two inputs or more), `not` and `buf`. A wiring that loops is refused.
+
+```js
+import { circuit } from "@ratmath/logic";
+
+const half = circuit({ inputs: ["a", "b"],
+  gates: { s: ["xor", "a", "b"], c: ["and", "a", "b"] }, outputs: ["s", "c"] });
+half.evaluate([1, 1]);           // { s: 0, c: 1 }
+half.size, half.depth;           // 2, 1
+String(half.formula("s"));       // "a ⊕ b"
+half.truthTable()[3];            // { inputs: [1, 1], outputs: { s: 0, c: 1 } }
+```
+
+### Adders
+
+A full adder adds three bits: sum=a⊕b⊕cin​ and cout​=(a∧b)∨((a⊕b)∧cin​). Chaining n of them, each carry feeding the next, gives a ripple-carry adder for n-bit numbers. Its depth grows with n, because the last carry waits for all the others; faster adders look ahead at the carries.
+
+```js
+import { adders } from "@ratmath/logic";
+
+const fa = adders.full();
+fa.size, fa.depth, fa.counts;    // 5, 3, { xor: 2, and: 2, or: 1 }
+
+const r4 = adders.ripple(4);     // inputs a3 a2 a1 a0 b3 b2 b1 b0, outputs c3 s3 s2 s1 s0
+r4.evaluate([0,1,1,1, 0,1,0,1]); // { c3: 0, s3: 1, s2: 1, s1: 0, s0: 0 }: 7 + 5 = 12
+r4.size, r4.depth;               // 17, 7
+```
+
+The tests check the 4-bit adder on all 256 pairs of inputs against ordinary addition.
+
+### One kind of gate is enough
+
+NAND alone can build everything: ¬a=a↑a, a∧b=¬(a↑b), and a∨b=¬a↑¬b. NOR is the same with the roles of and and or swapped. `circuitFrom` builds a circuit for a formula in standard gates, or in one of these, sharing equal parts and cancelling double negations.
+
+```js
+import { circuitFrom, circuitsEquivalent } from "@ratmath/logic";
+
+const n = circuitFrom("(a & b) | ~c", { gates: "nand" });
+n.counts;                        // { nand: 2 }: (a ↑ b) ↑ c
+circuitsEquivalent(n, "(a & b) | ~c");   // { status: "equivalent" }
+circuitsEquivalent(n, "(a & b) | c");
+// { status: "different", output: "out", inputs: { a: 1, b: 0, c: 0 }, values: [1, 0] }
+```
+
+Equivalence is decided by the [solver](https://ratmath.com/logic/satisfiability.html), and a difference comes with an input where the two disagree, checked by running both.
+
+### Karnaugh maps
+
+A Karnaugh map lays out a truth table of up to four atoms as a grid whose rows and columns are in Gray code order (00, 01, 11, 10), so neighbouring cells, including across the edges, differ in one atom. A block of 1, 2, 4 or 8 true cells in a rectangle is then a single product term: the atoms that stay the same across the block. Covering every 1 with as few, as large, blocks as possible gives a shortest sum of products.
+
+```js
+import { karnaugh } from "@ratmath/logic";
+
+const k = karnaugh("(a & b) | (~a & c) | (b & c) | (d & ~b & a)");
+k.toString();
+// ab\cd   00  01  11  10
+// 00       0   0   1   1
+// 01       0   0   1   1
+// 11       1   1   1   1
+// 10       0   1   1   0
+k.groups.map((g) => String(g.formula));   // ["a ∧ b", "a ∧ d", "¬a ∧ c"], each a block of 4
+String(k.formula);                         // "(a ∧ b) ∨ (a ∧ d) ∨ (¬a ∧ c)"
+
+String(karnaugh({ minterms: [0, 2, 8, 10], atoms: ["a", "b", "c", "d"] }).formula);
+// "¬b ∧ ¬d": the four corners are one block, because the edges wrap
+```
+
+Cells marked `x` are rows that do not matter (a `dontCares` list); a block may use them or not. The blocks are chosen by the same Quine–McCluskey method as [Simplification](https://ratmath.com/logic/simplification.html), so the map and the minimiser always agree.
+
+```js
+karnaugh({ minterms: [1, 3, 7], dontCares: [5], atoms: ["a", "b", "c"] }).formula;   // c
+```
+
+### Reference
+
+| Export | What it does |
+
+| circuit({ inputs, gates, outputs }) | A Circuit: evaluate(values), truthTable(), formula(output), size, depth, counts. |
+
+| circuitFrom(f, { gates, output }) | gates: "standard", "nand" or "nor". |
+
+| circuitsEquivalent(a, b) | Circuits or formulas, outputs matched by position. "equivalent", or "different" with the inputs that show it. |
+
+| adders.half(), adders.full(), adders.ripple(n) | Adders built from gates. |
+
+| karnaugh(f \| { minterms, atoms, dontCares }) | Two to four atoms. cells, rowLabels, colLabels, groups (each with formula, cells, size, essential), formula, toString(). |
+
+### Try it
+
+```js
+// A majority vote of three: true when at least two inputs are.
+const maj = "(a & b) | (a & c) | (b & c)";
+const k = karnaugh(maj);
+PRINT(k.toString());
+PRINT("groups:", k.groups.map((g) => String(g.formula)).join(", "));
+
+// In NAND gates only, then checked against the formula
+const n = circuitFrom(maj, { gates: "nand" });
+PRINT("NAND gates:", n.counts.nand, " depth:", n.depth);
+PRINT(circuitsEquivalent(n, maj).status);
+
+// A two-bit ripple adder: 3 + 2
+adders.ripple(2).evaluate([1, 1, 1, 0])
+```
+
+---
+
+Page: https://ratmath.com/logic/syllogisms.html
+
+Topic
+
+## Syllogisms
+
+For two thousand years logic meant the syllogism: two premises and a conclusion, each saying how two classes are related. Here validity is not looked up in a list. It is decided, by checking every way of filling in a Venn diagram, and the traditional names and rules are reported beside the answer.
+
+### Four forms of statement
+
+| Form | Statement | On the Venn diagram |
+
+| A | All S are P | S outside P is empty |
+
+| E | No S are P | S inside P is empty |
+
+| I | Some S are P | S inside P has something in it |
+
+| O | Some S are not P | S outside P has something in it |
+
+```js
+import { categorical, categoricalText } from "@ratmath/logic";
+
+categorical("No reptiles are mammals");     // { form: "E", subject: "reptiles", predicate: "mammals" }
+categoricalText({ form: "O", subject: "birds", predicate: "fliers" });   // "Some birds are not fliers"
+```
+
+### Mood and figure
+
+A syllogism has three terms: the minor term S (the subject of the conclusion), the major term P (its predicate), and the middle term M, which appears in both premises and not in the conclusion. The major premise, written first, contains P. The mood is the three forms in order, and the figure (1 to 4) says where M stands:
+
+| Figure | Major premise | Minor premise |
+
+| 1 | M – P | S – M |
+
+| 2 | P – M | S – M |
+
+| 3 | M – P | M – S |
+
+| 4 | P – M | M – S |
+
+So there are 43×4=256 syllogisms. Give one in words, or by mood and figure:
+
+```js
+import { syllogism } from "@ratmath/logic";
+
+const s = syllogism("All men are mortal", "All Greeks are men", "All Greeks are mortal");
+s.valid, s.form, s.name;    // true, "AAA-1", "Barbara"
+s.terms;                    // { S: "Greeks", M: "men", P: "mortal" }
+s.venn.shaded;              // ["¬SM¬P", "S¬M¬P", "S¬MP", "SM¬P"]: the regions forced empty
+
+syllogism("EIO-2", { S: "poets", M: "rich", P: "happy" }).statements;
+// ["No happy are rich", "Some poets are rich", "Some poets are not happy"]
+```
+
+### Deciding validity
+
+The three circles of a Venn diagram make eight regions. A statement says some regions are empty, or that some region among a few has something in it. Each of the 28=256 choices of which regions have something in them either makes the premises true or not; the syllogism is valid when every choice that makes the premises true makes the conclusion true. If one does not, it is a counterexample, and the fewest occupied regions are reported.
+
+```js
+const bad = syllogism("All dogs are animals", "All cats are animals", "All cats are dogs");
+bad.valid;               // false
+bad.counterexample;      // ["SM¬P"]: a cat that is an animal and not a dog
+bad.rules.filter((r) => r.broken).map((r) => r.rule);
+// ["the middle term is distributed at least once"]
+```
+
+The tests build actual sets from each counterexample, one element per occupied region, and check that the premises come out true and the conclusion false, for every invalid syllogism.
+
+### Existential import
+
+Aristotle took every term to have members, so "All S are P" carried "Some S are P" with it. Modern logic does not: "All unicorns have horns" is true because there are no unicorns. The modern reading has 15 valid syllogisms; with existential import, nine more become valid, each with its own name.
+
+```js
+syllogism("AAI-3").valid;              // false: "All M are P, All M are S, so Some S are P"
+syllogism("AAI-3").counterexample;     // []: everything empty
+syllogism("AAI-3", { existentialImport: true }).name;   // "Darapti"
+
+validSyllogisms().map((x) => x.name).join(", ");
+// "Barbara, Camestres, Calemes, Darii, Datisi, Baroco, Celarent, Cesare,
+//  Ferio, Festino, Ferison, Fresison, Disamis, Dimatis, Bocardo"
+```
+
+### The traditional rules
+
+Medieval logicians gave rules that a valid syllogism keeps. A term is distributed when the statement says something about all of it: the subject of A and E, the predicate of E and O.
+
+- The middle term is distributed at least once.
+
+- A term distributed in the conclusion is distributed in its premise (otherwise "illicit major" or "illicit minor").
+
+- Not both premises are negative.
+
+- A negative premise needs a negative conclusion, and a negative conclusion needs a negative premise.
+
+- On the modern reading, two universal premises do not give a particular conclusion.
+
+Each result lists the rules and which are broken. A syllogism is valid exactly when it breaks none, which the tests check against the Venn decision on all 256.
+
+### Reference
+
+| Export | What it does |
+
+| categorical(text \| { form, subject, predicate }) | A statement in one of the four forms. |
+
+| categoricalText(statement) | The statement in words. |
+
+| syllogism(major, minor, conclusion, { existentialImport }) | Decide a syllogism given in words or as objects. |
+
+| syllogism("AAA-1", { existentialImport, S, M, P }) | Decide by mood and figure, with names for the terms if you like. |
+
+| result | valid, mood, figure, form, name, terms, statements, counterexample (occupied regions), venn (shaded, marked), rules. |
+
+| validSyllogisms({ existentialImport }) | Every valid mood and figure with its name: 15, or 24 with existential import. |
+
+### Try it
+
+```js
+// Is this valid? If so, what is it called; if not, which rule does it break?
+const r = syllogism("No heroes are cowards", "Some soldiers are cowards", "Some soldiers are not heroes");
+PRINT(r.form, r.valid ? "valid: " + r.name : "invalid");
+PRINT("statements:", r.statements.join(" / "));
+PRINT("broken rules:", r.rules.filter((x) => x.broken).map((x) => x.rule).join("; ") || "none");
+
+// Every mood that becomes valid only with existential import
+const modern = new Set(validSyllogisms().map((x) => x.form));
+validSyllogisms({ existentialImport: true }).filter((x) => !modern.has(x.form)).map((x) => `${x.form} ${x.name}`)
+```
+
+---
+
+Page: https://ratmath.com/logic/modal-logic.html
+
+Topic
+
+## Modal logic
+
+Modal logic adds two operators: □A, "necessarily A", and ◊A, "possibly A". Read them as knowledge, obligation, provability or time, and the same machinery applies. What changes from reading to reading is which axioms hold, and Kripke's semantics ties each axiom to a property of a picture.
+
+### Formulas
+
+Write □ as `□`, `[]`, `box` or `nec`, and ◊ as `◇`, `<>`, `dia` or `poss`. Everything else is propositional. ◊A means the same as ¬□¬A.
+
+```js
+import { parseModal } from "@ratmath/logic";
+
+const f = parseModal("[]p -> <>p");
+String(f);                        // "□p → ◇p"
+f.modalDepth;                     // 1
+String(parseModal("box p -> dia p"));   // "□p → ◇p"
+```
+
+### Kripke models
+
+A Kripke model is a set of worlds, an accessibility relation saying which worlds each world "sees", and a valuation saying where each atom is true. Then □A is true at w when A is true at every world w sees, and ◊A when A is true at some world w sees. A world that sees nothing makes every □A true, even □⊥.
+
+```js
+import { kripke } from "@ratmath/logic";
+
+const M = kripke({ worlds: ["a", "b", "c"],
+  access: [["a", "b"], ["a", "c"], ["b", "b"]], valuation: { p: ["b"] } });
+M.truthAt("◇p ∧ ◇¬p", "a");      // true: a sees b (p) and c (not p)
+M.truthAt("□⊥", "c");            // true: c sees nothing
+M.trueAt("□p");                  // ["b", "c"]
+M.truthAt("□p", "a", { explain: true }).steps[0];
+// "□p at a: false (p fails at c, which a sees)"
+```
+
+### Axioms and frames
+
+A frame is a Kripke model without the valuation. A formula is valid on a frame when it is true at every world under every valuation, and some formulas are valid exactly on the frames with a property:
+
+| Axiom | Formula | Valid exactly on frames that are |
+
+| K | □(p→q)→(□p→□q) | all frames |
+
+| D | □p→◊p | serial: every world sees some world |
+
+| T | □p→p | reflexive |
+
+| B | p→□◊p | symmetric |
+
+| 4 | □p→□□p | transitive |
+
+| 5 | ◊p→□◊p | euclidean |
+
+The usual systems are named for their frames: K (any), D (serial), T (reflexive), B (reflexive and symmetric), S4 (reflexive and transitive) and S5 (all three, an equivalence relation). For knowledge, T says that what is known is true; 4 says that what is known is known to be known.
+
+```js
+import { validOnFrame, SYSTEMS } from "@ratmath/logic";
+
+validOnFrame("□p → p", { worlds: 2, access: [["w1", "w1"], ["w2", "w2"], ["w1", "w2"]] });
+// { valid: true }: the frame is reflexive
+const v = validOnFrame("□p → □□p", { worlds: 3, access: [["w1", "w2"], ["w2", "w3"]] });
+v.valid, v.valuation, v.world;    // false, { p: ["w2"] }, "w1": the frame is not transitive
+```
+
+### Deciding validity
+
+`modalValid` builds a truth tree with each formula labelled by its world. ¬□A at w creates a new world that w sees, with ¬A there; □A at w sends A to every world w sees. The frame properties of the system add edges: a loop at each world for T, an edge back for B, edges through for S4. If every branch closes, the formula is valid in the system. If a branch stays open, its worlds and edges are a countermodel, which is checked to be a frame of the system and to make the formula false.
+
+```js
+import { modalValid, showModalTree } from "@ratmath/logic";
+
+modalValid("□p → p").status;                   // "invalid" in K
+modalValid("□p → p").countermodel.describe();
+// { worlds: ["w1"], access: { w1: [] }, valuation: { p: [] } }
+modalValid("□p → p", { system: "T" }).status;  // "valid"
+
+const r = modalValid("◇p → □◇p", { system: "S4" });
+r.status;                                      // "invalid": axiom 5 needs S5
+r.countermodel.describe().access;              // { w1: ["w2", "w3", "w1"], w2: ["w2"], w3: ["w3"] }
+
+showModalTree(modalValid("□(p→q)→(□p→□q)").tree);
+// w1: ¬(□(p → q) → (□p → □q))    (the formula is assumed false at w1)
+// w1: □(p → q)    …
+// w2: w1 sees w2    (for ¬□q at w1)
+// w2: ¬q    (from ¬□q at w1)
+// …
+//   × closed: q and ¬q at w2
+```
+
+In S4 and S5 a tree could keep making worlds forever. A world whose formulas already appear at an earlier world is given no new successors; it points back to that world instead, which keeps every tree finite. The tests check the whole table of axioms against all six systems, and every countermodel against its frame conditions.
+
+### Reference
+
+| Export | What it does |
+
+| parseModal(text), modal(x) | A ModalFormula: atoms(), modalDepth, toString({ style }). |
+
+| kripke({ worlds, access, valuation }) | A Kripke model: sees(w), truthAt(f, w, { explain }), trueAt(f), holds(f), properties(), describe(). |
+
+| SYSTEMS | The frame conditions of K, D, T, B, S4 and S5. |
+
+| validOnFrame(f, frame) | Every valuation tried (up to 220); { valid }, or a valuation and world where it fails. |
+
+| modalValid(f, { system, budget }) | "valid" with the closed tree, "invalid" with a checked countermodel, or "unresolved". |
+
+| showModalTree(tree) | The tree as text. |
+
+### Try it
+
+```js
+// Which systems prove which axioms? Each "-" comes with a countermodel.
+const axioms = [["K", "□(p→q)→(□p→□q)"], ["D", "□p→◇p"], ["T", "□p→p"], ["B", "p→□◇p"], ["4", "□p→□□p"], ["5", "◇p→□◇p"]];
+const systems = ["K", "D", "T", "B", "S4", "S5"];
+PRINT("axiom  " + systems.map((s) => s.padEnd(3)).join(""));
+for (const [name, f] of axioms) {
+  PRINT(name.padEnd(7) + systems.map((s) => (modalValid(f, { system: s }).status === "valid" ? "✓" : "-").padEnd(3)).join(""));
+}
+
+// The countermodel to 4 in T
+modalValid("□p→□□p", { system: "T" }).countermodel.describe()
+```
+
+---
+
+Page: https://ratmath.com/logic/automata.html
+
+Topic
+
+## Automata and regular expressions
+
+A finite automaton reads a word one symbol at a time, moving between finitely many states, and accepts or rejects at the end. The languages it can recognise are exactly those a regular expression can describe, and almost every question about them can be decided.
+
+### Automata and runs
+
+A DFA has one move for each state and symbol. An NFA may have several, or none, or moves on the empty word ε; it accepts when some way of running ends in an accepting state. Give the moves as a table:
+
+```js
+import { automaton } from "@ratmath/logic";
+
+// words with an even number of a's
+const even = automaton({ states: ["e", "o"], alphabet: "ab", start: "e", accept: ["e"],
+  delta: { e: { a: "o", b: "e" }, o: { a: "e", b: "o" } } });
+even.accepts("abba");     // true
+even.run("aba").trace;    // [{ read: null, states: ["e"] }, { read: "a", states: ["o"] },
+                          //  { read: "b", states: ["o"] }, { read: "a", states: ["e"] }]
+even.words(3);            // ["", "b", "aa", "bb", "aab", "aba", "baa", "bbb"]
+```
+
+### From NFA to DFA, and the smallest DFA
+
+An NFA is in a set of states at each step, so a DFA whose states are those sets does the same job (the subset construction). It can need 2n states for an n-state NFA, but usually far fewer are reachable. Then the DFA can be shrunk: two states that accept exactly the same continuations can be merged, and refining "accepting or not" until nothing splits gives the smallest DFA for the language, which is unique up to the names of its states (Myhill and Nerode).
+
+```js
+import { regexToNFA, toDFA, minimizeAutomaton } from "@ratmath/logic";
+
+const n = regexToNFA("(a|b)*abb");     // 20 states, with ε moves
+toDFA(n).states.length;                // 5
+const m = minimizeAutomaton(n);
+m.toString();
+// start q0; accept q3
+// q0 --a--> q1      q0 --b--> q0
+// q1 --a--> q1      q1 --b--> q2
+// q2 --a--> q1      q2 --b--> q3
+// q3 --a--> q1      q3 --b--> q0
+```
+
+State qk​ remembers how much of `abb` the word has just read.
+
+### Equivalence, with a reason
+
+Two automata accept the same language exactly when, running both side by side, no reachable pair of states has one accepting and the other not. A breadth-first search over the pairs finds a shortest word that tells them apart, and the word is checked on both.
+
+```js
+import { equivalentAutomata } from "@ratmath/logic";
+
+equivalentAutomata("(a|b)*", "(a*b*)*");   // { equivalent: true }
+equivalentAutomata("a*b*", "(a|b)*");
+// { equivalent: false, word: "ba", acceptedBy: "second" }
+```
+
+### Regular expressions
+
+A regular expression is built from symbols, ε, union `|`, concatenation and star `*` (and `+`, `?` as shorthand). Thompson's construction turns each piece into a small NFA with one start and one end and joins them with ε moves. Going back, state elimination removes the states of an automaton one at a time, labelling the edges with ever larger expressions, until one edge from start to end is left (Kleene's theorem, both directions).
+
+```js
+import { toRegex } from "@ratmath/logic";
+
+toRegex(even);    // "b*|b*a((b|ab*a)*)ab*"
+```
+
+The expressions that come back are correct but rarely the shortest; the tests check each against JavaScript's own regular expressions on every word up to length 7.
+
+### Complements and products
+
+Complete a DFA with a dead state and swap accepting and rejecting states, and it accepts the complement. Run two DFAs side by side, and accepting when both do (or either, or the first and not the second) gives intersection, union and difference. Regular languages are closed under all of these.
+
+```js
+import { complement, product } from "@ratmath/logic";
+
+product(even, n, "and").words(5);   // ["aabb", "ababb", "baabb"]
+complement(even).words(3);          // ["a", "ab", "ba", "aaa", "abb", "bab", "bba"]
+```
+
+### Reference
+
+| Export | What it does |
+
+| automaton({ states, alphabet, start, accept, delta }) | An Automaton: run(word) with a trace, accepts, words(maxLength), isDFA, isComplete, toString(). |
+
+| toDFA(a), complete(a, alphabet) | The subset construction; every move defined, with a dead state ∅. |
+
+| minimizeAutomaton(a) | The smallest DFA, with states named q0, q1, … |
+
+| equivalentAutomata(a, b) | Automata or regular expressions. { equivalent }, with a shortest word when not. |
+
+| complement(a, alphabet), product(a, b, op) | op: "and", "or" or "minus". |
+
+| parseRegex(text), regexToNFA(regex), toRegex(a) | Regular expressions to automata (Thompson) and back (state elimination). |
+
+### Try it
+
+```js
+// Binary numbers divisible by 3: the state is the remainder so far.
+const div3 = automaton({ states: ["0", "1", "2"], alphabet: "01", start: "0", accept: ["0"],
+  delta: { 0: { 0: "0", 1: "1" }, 1: { 0: "2", 1: "0" }, 2: { 0: "1", 1: "2" } } });
+const numbers = div3.words(5).filter((w) => w === "0" || w[0] === "1");   // no leading zeros
+PRINT("accepted up to length 5:", numbers.map((w) => `${w} = ${parseInt(w, 2)}`).join(", "));
+
+// A regular expression for the same language, found by state elimination
+const re = toRegex(div3);
+PRINT("as a regex:", re);
+PRINT("same language:", equivalentAutomata(re, div3).equivalent);
+
+// Already minimal?
+minimizeAutomaton(div3).states.length
+```
+
+---
+
+Page: https://ratmath.com/logic/machines.html
+
+Topic
+
+## Grammars and machines
+
+Beyond finite automata the machines get memory: a stack, then an unbounded tape. Each step up recognises more languages, and at the top, with Turing machines and recursive functions, the questions stop being decidable. Machines here run with a step budget, and a machine that has not halted is reported as running, never as rejecting.
+
+### Context-free grammars
+
+A grammar has rules that rewrite a nonterminal (a capital letter) into a string of symbols. The words it generates are the strings of terminals reachable from the start symbol. S→aSb∣ε generates anbn, which no finite automaton can recognise, since it would need to count without limit.
+
+```js
+import { grammar, showTree } from "@ratmath/logic";
+
+const g = grammar("S -> a S b | ε");
+g.words(8).words;        // ["", "ab", "aabb", "aaabbb", "aaaabbbb"]
+showTree(g.parse("aabb").tree);   // "S(a S(a S(ε) b) b)"
+```
+
+Membership is decided by the CYK method. The grammar is first put in Chomsky normal form, where every rule is A→BC or A→a: ε-rules and unit rules are removed, and long rules are split. Then a table records which nonterminals generate each piece of the word, shortest pieces first, in time O(n3). When the word is accepted, a parse tree in the grammar as you wrote it is found too.
+
+```js
+g.toCNF().toString();
+// S → T0 X0 | T0 T1
+// X0 → S T1
+// S0 → ε | T0 X0 | T0 T1
+// T0 → a
+// T1 → b
+
+const e = grammar("E -> E + T | T\nT -> T * F | F\nF -> ( E ) | x");
+showTree(e.parse("x+x*x").tree);   // "E(E(T(F(x))) + T(T(F(x)) * F(x)))": * binds tighter
+e.accepts("x+*x");                  // false
+```
+
+### Pushdown automata
+
+A pushdown automaton is a finite automaton with a stack. Each move reads a symbol (or nothing), pops the top of the stack (or nothing), and pushes a string. It accepts by ending in an accepting state. These machines recognise exactly the context-free languages. The run searches the possible computations breadth first and returns the accepting one it finds:
+
+```js
+import { pda } from "@ratmath/logic";
+
+// a's push A, then each b pops one; accept when only Z is left
+const anbn = pda({ start: "q0", accept: ["q2"], moves: [
+  ["q0", "a", "ε", "q0", "A"], ["q0", "ε", "ε", "q1", "ε"],
+  ["q1", "b", "A", "q1", "ε"], ["q1", "ε", "Z", "q2", "Z"]] });
+anbn.run("aabb").trace.map((c) => `${c.state} ${c.read || "-"} ${c.stack}`);
+// ["q0 - Z", "q0 a AZ", "q0 aa AAZ", "q1 aa AAZ", "q1 aab AZ", "q1 aabb Z", "q2 aabb Z"]
+anbn.accepts("aab");    // false
+```
+
+### Turing machines
+
+A Turing machine has a tape, unbounded both ways, and a head that reads a symbol, writes one, and moves left or right, according to a table indexed by state and symbol. Every algorithm can be written as one (the Church–Turing thesis), and so whether a machine halts cannot in general be decided: the halting problem. So `run` takes a budget, and a machine still going at the end is `"running"`.
+
+```js
+import { turing, binaryIncrement } from "@ratmath/logic";
+
+binaryIncrement().run("1011", { trace: true });
+// { status: "accepted", steps: 8, tape: "1100", trace: ["right: [1]011", "right: 1[0]11", …,
+//   "carry: 101[1]_", "carry: 10[1]0_", "carry: 1[0]00_", "done: 1[1]00_"] }
+
+turing({ start: "q", delta: { "q,_": ["q", "_", "R"] } }).run("", { budget: 50 }).status;
+// "running": this one walks right forever, but the run only knows it has not stopped
+```
+
+A transition is written `"state,symbol": [new state, symbol written, move]`, with moves `L`, `R` or `S` (stay). With no transition the machine halts without accepting.
+
+### Recursive functions
+
+The other road to computability builds functions on the natural numbers from a few pieces: zero, successor, projections Pin​, composition, and primitive recursion: f(0,y​)=g(y​) and f(x+1,y​)=h(x,f(x,y​),y​). These are the primitive recursive functions, and every one of them halts. Adding minimisation, μx.f(x,y​)=0, the least zero, gives the general recursive functions, exactly the functions Turing machines compute, and with it the possibility of searching forever.
+
+```js
+import { recursive } from "@ratmath/logic";
+
+const { add, mult, power, factorial } = recursive.examples;   // built only from the pieces
+add.at(3, 4);            // 7n
+power.at(2, 10);         // 1024n
+factorial.at(7);         // 5040n
+
+const { compose, proj } = recursive;
+const double = compose(add, [proj(1, 1), proj(1, 1)]);
+double.at(21);           // 42n
+double.name;             // "add∘(P1^1,P1^1)"
+```
+
+These are computed the honest way, so addition takes x successor steps and multiplication repeats addition: keep the numbers small. `mu` stops at its budget and says that the search may never end.
+
+### Reference
+
+| Export | What it does |
+
+| grammar(text \| { start, rules }) | A Grammar: words(maxLength), toCNF(), parse(word) (accepted, tree, cnfTree), accepts, toString(). |
+
+| showTree(tree) | A parse tree as S(a S(…) b). |
+
+| pda({ start, accept, stackStart, moves }) | A PDA; run(word, { budget }) gives "accepted" with a trace, "rejected", or "unresolved". |
+
+| turing({ start, accept, reject, blank, delta }) | A TuringMachine; run(input, { budget, trace }) gives status ("accepted", "rejected", "halted", "running"), steps, tape, head. |
+
+| binaryIncrement() | A machine that adds one to a binary number. |
+
+| recursive | zero, succ, proj(i, n), compose(f, gs), primrec(g, h), mu(f, { budget }), constant(c, n), and examples: add, mult, pred, monus, power, factorial. Each has arity, name, at(...) on BigInt. |
+
+### Try it
+
+```js
+// A Turing machine that checks a word of a's and b's is a palindrome:
+// cross off the first symbol, run to the end, check it matches, come back.
+const pal = turing({ start: "s", accept: "yes", reject: "no", delta: {
+  "s,a": ["ra", "_", "R"], "s,b": ["rb", "_", "R"], "s,_": ["yes", "_", "S"],
+  "ra,a": ["ra", "a", "R"], "ra,b": ["ra", "b", "R"], "ra,_": ["ca", "_", "L"],
+  "rb,a": ["rb", "a", "R"], "rb,b": ["rb", "b", "R"], "rb,_": ["cb", "_", "L"],
+  "ca,a": ["back", "_", "L"], "ca,b": ["no", "b", "S"], "ca,_": ["yes", "_", "S"],
+  "cb,b": ["back", "_", "L"], "cb,a": ["no", "a", "S"], "cb,_": ["yes", "_", "S"],
+  "back,a": ["back", "a", "L"], "back,b": ["back", "b", "L"], "back,_": ["s", "_", "R"],
+} });
+for (const w of ["abba", "aba", "abab", ""]) {
+  const r = pal.run(w);
+  PRINT(JSON.stringify(w), r.status, "in", r.steps, "steps");
+}
+
+// The same language by a grammar
+const g = grammar("S -> a S a | b S b | a | b | ε");
+["abba", "aba", "abab"].map((w) => g.accepts(w))
+```

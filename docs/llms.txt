@@ -1,0 +1,170 @@
+# @ratmath/logic
+
+> Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability. Part of the RatMath Shelf; numbers come from @ratmath/core (a peer dependency). ESM: `import * as logic from "@ratmath/logic"`.
+
+Built from 0.2.0, commit dc58bfa. `file:line` is relative to the package root (also node_modules/@ratmath/logic/); on GitHub: https://github.com/ratmath/logic/blob/dc58bfa/<file>#L<line>. Docs pages are under https://ratmath.com/logic/. Full types: index.d.ts.
+
+Types: `type Kind = "atom" | "top" | "bot" | "not" | "and" | "or" | "imp" | "iff" | "xor"`; `type Style = "unicode" | "ascii" | "words" | "tex"`; `type FormulaLike = Formula | string`; `type FormulaList = readonly FormulaLike[] | string | Formula`; `type Valuation = Record<string, boolean | 0 | 1> | Map<string, boolean | 0 | 1>`; `type Model = Record<string, boolean>`; `type ClauseLike = string | readonly string[]`; `type Citation = number | [number, number]`; `type FOKind = "pred" | "eq" | "top" | "bot" | "not" | "and" | "or" | "imp" | "iff" | "xor" | "all" | "ex"`; `type FOFormulaLike = FOFormula | string`; `type FOFormulaList = readonly FOFormulaLike[] | string | FOFormula`; `type Element = string | number`; `type GateKind = "and" | "or" | "xor" | "nand" | "nor" | "xnor" | "not" | "buf"`; `type CategoricalForm = "A" | "E" | "I" | "O"`; `type ModalSystem = "K" | "D" | "T" | "B" | "S4" | "S5"`; `type AutomatonLike = Automaton | AutomatonSpec`
+
+## Docs
+
+- https://ratmath.com/logic/llms-full.txt: every page below as Markdown, each with a runnable example
+- Pages: index (Overview), reference (Reference), explore (Explore), formulas (Formulas), truth-tables (Truth tables), normal-forms (Normal forms), satisfiability (Satisfiability and validity), simplification (Simplification), natural-deduction (Natural deduction), sequents (Sequent calculus), truth-trees (Truth trees), resolution (Resolution), proof-search (Proof search and hints), predicate-logic (Predicate logic), models (Finite models), first-order-proofs (First-order proofs and trees), circuits (Circuits and Karnaugh maps), syllogisms (Syllogisms), modal-logic (Modal logic), automata (Automata and regular expressions), machines (Grammars and machines)
+
+## API
+
+name(params) → result — meaning · file:line · docs page
+
+- `Formula class: kind, name, arg, left, right, key, parts, isAtom, isLiteral, size, depth, equals, atoms, subformulas, evaluate, substitute, toString, toTeX, toJSON` — A formula. · src/formula.js:40 · formulas
+- `LogicError class: code, position` · src/formula.js:4 · formulas
+- `parse(text: string) → Formula` — Read a formula. · src/formula.js:235 · formulas
+- `formula(x: FormulaLike) → Formula` — A Formula from a Formula or from text. · src/formula.js:291 · formulas
+- `formulas(x: FormulaList | null | undefined) → Formula[]` — A formula, or a list of formulas (an array, or text with commas), as an array. · src/formula.js:317 · formulas
+- `atom(name: string) → Formula` · src/formula.js:299 · formulas
+- `not(f: FormulaLike) → Formula` · src/formula.js:303 · formulas
+- `and(...fs: (FormulaLike | readonly FormulaLike[])[]) → Formula` — The conjunction of any number of formulas; of none, ⊤. · src/formula.js:309 · formulas
+- `or(...fs: (FormulaLike | readonly FormulaLike[])[]) → Formula` — The disjunction of any number of formulas; of none, ⊥. · src/formula.js:311 · formulas
+- `implies(a: FormulaLike, b: FormulaLike) → Formula` · src/formula.js:312 · formulas
+- `iff(a: FormulaLike, b: FormulaLike) → Formula` · src/formula.js:313 · formulas
+- `xor(a: FormulaLike, b: FormulaLike) → Formula` · src/formula.js:314 · formulas
+- `TRUE: Formula` · src/formula.js:173 · formulas
+- `FALSE: Formula` · src/formula.js:174 · formulas
+- `truthTable( input: FormulaLike | readonly FormulaLike[], options?: { atoms?: readonly string[]; subformulas?: boolean; order?: "TF" | "FT" }, ) → TruthTable` — A truth table. · src/semantics.js:73 · truth-tables
+- `tableBits(f: FormulaLike, atoms?: readonly string[]) → bigint` — The truth table of a formula as a BigInt: bit r is the value on row r. · src/semantics.js:29 · truth-tables
+- `minterms(f: FormulaLike, atoms?: readonly string[]) → number[]` — The row numbers where the formula is true. · src/semantics.js:125 · truth-tables
+- `maxterms(f: FormulaLike, atoms?: readonly string[]) → number[]` — The row numbers where the formula is false. · src/semantics.js:129 · truth-tables
+- `countModels(f: FormulaLike, atoms?: readonly string[]) → bigint` — How many of the 2^n valuations make the formula true, as a BigInt. · src/semantics.js:135 · truth-tables
+- `models(f: FormulaLike, options?: { atoms?: readonly string[]; limit?: number }) → Model[]` — The valuations that make the formula true (at most `limit` of them). · src/semantics.js:143 · truth-tables
+- `fromMinterms(atoms: readonly string[], rows: readonly number[]) → Formula` — The formula in full disjunctive form that is true on exactly the given rows. · src/semantics.js:155 · truth-tables
+- `fromMaxterms(atoms: readonly string[], rows: readonly number[]) → Formula` — The formula in full conjunctive form that is false on exactly the given rows. · src/semantics.js:160 · truth-tables
+- `nnf(f: FormulaLike) → Formula` — Negation normal form: only ∧ and ∨, with ¬ on atoms alone. → ↔ ⊕ are written out and negations pushed inward by De Morgan's laws. · src/normal.js:38 · normal-forms
+- `cnf(f: FormulaLike, options?: { method?: "distribute" | "table" | "tseitin"; limit?: number; atoms?: readonly string[] }) → Formula` — Conjunctive normal form: a conjunction of disjunctions of literals. method "distribute" (default) multiplies out and drops clauses that are always true or… · src/normal.js:132 · normal-forms
+- `dnf(f: FormulaLike, options?: { method?: "distribute" | "table"; limit?: number; atoms?: readonly string[] }) → Formula` — Disjunctive normal form: a disjunction of conjunctions of literals. method "distribute" (default) or "table" (one term for each true row). · src/normal.js:149 · normal-forms
+- `tseitin(f: FormulaLike) → TseitinForm` — The Tseitin form: every compound subformula gets a new atom (_1, _2, …) and three or four short clauses saying the atom means that subformula. · src/normal.js:218 · normal-forms
+- `clauses(f: FormulaLike, options?: { method?: "distribute" | "tseitin" | "auto" }) → string[][]` · src/normal.js:166 · normal-forms
+- `foldConstants(f: FormulaLike) → Formula` — Remove ⊤ and ⊥ wherever they sit under a connective. · src/normal.js:12 · normal-forms
+- `isNnf(f: FormulaLike) → boolean` · src/normal.js:270 · normal-forms
+- `isCnf(f: FormulaLike) → boolean` · src/normal.js:274 · normal-forms
+- `isDnf(f: FormulaLike) → boolean` · src/normal.js:278 · normal-forms
+- `satisfiable(input: FormulaList, options?: SolverOptions) → SatResult` — Can the formula (or all the formulas of a list at once) be true? { status: "satisfiable", model } the model has been checked { status: "unsatisfiable",… · src/sat.js:325 · truth-tables
+- `valid(input: FormulaLike, options?: SolverOptions) → ValidityResult` — Is the formula true under every valuation? { status: "valid", refutation } a refutation of its negation { status: "invalid", countermodel } a valuation that… · src/sat.js:336 · truth-tables
+- `entails(premises: FormulaList, conclusion: FormulaLike, options?: SolverOptions) → ValidityResult` — Do the premises force the conclusion? · src/sat.js:344 · satisfiability
+- `equivalent(a: FormulaLike, b: FormulaLike, options?: SolverOptions) → EquivalenceResult` — Do two formulas have the same truth table? { status: "equivalent", refutation } { status: "different", witness, values: [a, b] } a valuation where they… · src/sat.js:360 · formulas
+- `classify( input: FormulaLike, options?: SolverOptions, ) → { kind: "tautology" | "contradiction" | "contingent" | "unresolved"; trueUnder?: Model; falseUnder?: Model; refutation?: ResolutionProof; reason?: string; }` — "tautology", "contradiction" or "contingent", with the evidence: { kind, trueUnder, falseUnder } gives a valuation for each side that exists. kind is… · src/sat.js:374 · truth-tables
+- `satisfiableClauses(input: readonly ClauseLike[], options?: { budget?: number }) → SatResult` — The solver on clauses given directly: satisfiableClauses(["p | q", "~p", "~q"]). · src/sat.js:389 · satisfiability
+- `clause(input: ClauseLike) → string[]` · src/sat.js:31 · truth-tables
+- `literal(text: string) → string` — A literal as text, in the house spelling: "p" or "¬p". · src/sat.js:136 · resolution
+- `resolve(c1: ClauseLike, c2: ClauseLike, pivot?: string) → string[] | null` — The resolvent of two clauses on an atom: one must hold the atom and the other its negation. · src/sat.js:165 · satisfiability
+- `ResolutionProof class: steps, method, premises, definitions, check, toString` — A resolution proof: numbered lines, each a premise clause or the resolvent of two earlier lines. · src/sat.js:186 · resolution
+- `parseResolution(text: string) → ResolutionProof` — Read a resolution proof from text, one line each: 1. p | q premise 2. ~p | q premise 3. q res 1, 2 Line numbers are optional; "resolve", "res" or just the… · src/sat.js:213 · resolution
+- `checkResolution(proof: ResolutionProof | string, options?: { premises?: readonly ClauseLike[] }) → ResolutionCheck` — Check a resolution proof line by line. · src/sat.js:248 · resolution
+- `minimize(input: FormulaLike, options?: MinimizeOptions) → Minimized` — The shortest sum of products (form "dnf") or product of sums (form "cnf") with the formula's truth table. { formula, form, terms, literals, exact, primes:… · src/simplify.js:150 · simplification
+- `simplify(input: FormulaLike, options?: Omit<MinimizeOptions, "form"> & { form?: "dnf" | "cnf" | "auto" }) → Formula` — A shortest equivalent formula in two levels. form "dnf", "cnf", or "auto" (default): whichever of the two is shorter. · src/simplify.js:194 · simplification
+- `primeImplicants(input: FormulaLike, options?: Omit<MinimizeOptions, "form">) → Formula[]` — The prime implicants of a formula, as conjunctions of literals. · src/simplify.js:186 · simplification
+- `rules: { readonly intuitionistic: RuleSet; readonly classical: RuleSet; /** Classical, with the shortcuts MT, DS, HS, DNI and DeM. */ readonly derived: RuleSet; }` — The rule sets that come with the package. rules.intuitionistic introduction and elimination rules, with ⊥E rules.classical the same and IP (indirect proof),… · src/fitch.js:126 · natural-deduction
+- `ruleSet(name: string, rules: readonly Rule[], options?: { logic?: "classical" | "intuitionistic" }) → RuleSet` — A rule set from a list of rules. · src/fitch.js:110 · natural-deduction
+- `Proof class: lines, check, toString` — A Fitch proof: lines of { n, depth, formula, rule, cites }. · src/fitch.js:146 · natural-deduction
+- `parseProof(text: string, options?: { rules?: RuleSet }) → Proof` — Read a proof from text, one line each: 1. p -> q premise 2. | p assumption 3. | q ->E 1, 2 4. p -> q ->I 2-3 A bar (| or │) at the start marks each level of… · src/fitch.js:191 · natural-deduction
+- `checkProof(proof: Proof | string | readonly ProofLineInput[] | { lines: readonly ProofLineInput[] }, options?: CheckProofOptions) → ProofCheck` — Check a proof line by line. checkProof(proof, { rules, premises, conclusion }) proof is a Proof or text for parseProof. rules is a rule set (default… · src/fitch.js:350 · natural-deduction
+- `Sequent class: left, right, key, toString` — A sequent Γ ⊢ Δ: two lists of formulas, read as sets. · src/sequent.js:14 · sequents
+- `sequent(text: string | Sequent) → Sequent (+1 overload)` — A sequent from text such as "p -> q, p |- q" (⊢ or |- between the sides), or from two lists. · src/sequent.js:28 · sequents
+- `calculi: { readonly classical: Calculus; readonly intuitionistic: Calculus }` — The calculi that come with the package. · src/sequent.js:92 · sequents
+- `calculus(name: string, rules: Record<string, SequentRule>, options?: { maxRight?: number; logic?: "classical" | "intuitionistic" }) → Calculus` · src/sequent.js:96 · sequents
+- `Derivation class: sequent, rule, premises, principal, lines, size, check, toString` — A derivation: a sequent, the rule that concludes it, the principal formula (optional: the checker finds it), and the derivations of its premises. · src/sequent.js:127 · sequents
+- `parseDerivation(text: string, options?: { calculus?: Calculus }) → Derivation` — Read a derivation from numbered lines, the last line being the sequent derived: 1. p |- p, q Ax 2. q |- p, q Ax 3. p | q |- p, q |L 1, 2 · src/sequent.js:171 · sequents
+- `checkDerivation(input: Derivation | string, options?: { calculus?: Calculus }) → DerivationCheck` — Check a derivation against a calculus (default calculi.classical). { ok, errors: [{ line, rule, message }], proves } Each error names the line (as numbered… · src/sequent.js:212 · sequents
+- `proveSequent(input: Sequent | string, options?: { logic?: "classical" | "intuitionistic"; budget?: number }) → SequentResult` — Search for a derivation of a sequent. proveSequent("p -> q, p |- q") proveSequent("|- p | ~p", { logic: "intuitionistic" }) { status: "proved", derivation }… · src/sequent.js:496 · sequents
+- `forces(model: KripkeModel, world: number, f: FormulaLike) → boolean` — Does the world force the formula? · src/sequent.js:426 · sequents
+- `tableauRules: readonly TableauRule[]` — The rules, as data: a pattern and what each new branch receives. · src/tableau.js:12 · truth-trees
+- `Tableau class: root, formulas, status, closed, model, lines, branches, reason, check, toString` — A finished tree. · src/tableau.js:47 · truth-trees
+- `tableau(input: FormulaList, options?: { budget?: number; all?: boolean; labels?: string[] }) → Tableau` — Build the tree for a list of formulas. tableau(["p -> q", "p", "~q"]) Returns a Tableau with closed (true when every branch closes), and, when some branch… · src/tableau.js:84 · truth-trees
+- `checkTableau(t: { root: TableauNode }, options?: { formulas?: FormulaList }) → TableauCheck` — Check a tree: every line comes from an earlier line on its branch by a rule, every split is the split its rule makes, every branch marked closed holds the… · src/tableau.js:173 · truth-trees
+- `tableauProof( premises: FormulaList, conclusion: FormulaLike, options?: { budget?: number; all?: boolean }, ) → ` — Test an argument by a tree: the premises with the negated conclusion. { status: "valid", tableau } every branch closes { status: "invalid", countermodel,… · src/tableau.js:259 · truth-trees
+- `prove(premises: FormulaList, conclusion: FormulaLike, options?: { logic?: "classical" | "intuitionistic"; budget?: number }) → ProveResult` — Find a natural deduction proof. prove("p -> q, q -> r", "p -> r") prove([], "p | ~p", { logic: "intuitionistic" }) { status: "proved", proof } a Proof the… · src/prove.js:210 · proof-search
+- `hint( proofSoFar: Proof | string | readonly ProofLineInput[], options: { premises?: FormulaList; conclusion: FormulaLike; rules?: RuleSet; budget?: number }, ) → Hint` — The next line of a proof in progress, and only the next line. hint(textSoFar, { premises, conclusion, rules }) Leave `premises` out and the premises are the… · src/prove.js:273 · proof-search
+- `Term class: kind, name, args, equals, toString` — A term: a variable, a constant, or a function symbol applied to terms. · src/predicate.js:17 · predicate-logic
+- `FOFormula class: kind, key, args, variable, body, arg, left, right, isQuantifier, isAtomic, isSentence, parts, equals, alphaEquals, freeVariables, signature, substitute, toString, toTeX` — A first-order formula. kind: pred (name, args), eq (left, right terms), top, bot, not (arg), and/or/imp/iff/xor (left, right), all/ex (variable, body). · src/predicate.js:59 · predicate-logic
+- `FTRUE: FOFormula` · src/predicate.js:231
+- `FFALSE: FOFormula` · src/predicate.js:232
+- `parseFO(text: string) → FOFormula` — Read a first-order formula. ∀x P(x) forall x. · src/predicate.js:287 · predicate-logic
+- `parseTerm(text: string) → Term` — A term from text: x, a, f(x, b). · src/predicate.js:397 · predicate-logic
+- `fo(input: FOFormulaLike) → FOFormula` — A first-order formula from a formula or text. · src/predicate.js:402 · predicate-logic
+- `foList(input: FOFormulaList) → FOFormula[]` · src/predicate.js:407 · predicate-logic
+- `foNnf(f: FOFormulaLike) → FOFormula` — Negation normal form: only ∧, ∨, quantifiers, and ¬ on atomic formulas. · src/predicate.js:429 · predicate-logic
+- `prenex(f: FOFormulaLike) → FOFormula` — Prenex form: every quantifier moved to the front, after renaming bound variables apart. · src/predicate.js:455 · predicate-logic
+- `skolemize(f: FOFormulaLike) → FOFormula` — Skolem form of a sentence: prenex, then each ∃ replaced by a new function of the ∀ variables before it (a new constant when there are none). · src/predicate.js:492 · predicate-logic
+- `isVariableName(name: string) → boolean` — Is the name a variable when nothing binds it? u, v, w, x, y, z with digits or primes. · src/predicate.js:41
+- `Structure class: domain, size, constants, functions` — A finite structure (interpretation). structure({ domain: [1, 2, 3] or 3, constants: { a: 1 }, functions: { f: (x) => … or { "1": 2, "2": 3, … } },… · src/predicate.js:531 · models
+- `structure(spec: StructureSpec | Structure) → Structure` · src/predicate.js:609 · models
+- `evaluate(f: FOFormulaLike, M: StructureSpec | Structure, options?: { assignment?: Record<string, Element>; explain?: boolean }) → Evaluation` — Evaluate a formula in a structure, with the reasons: { value, reason } where reason explains the top-level answer: for ∀ that fails, a counterexample; for ∃… · src/predicate.js:617 · models
+- `findModel(sentences: FOFormulaList, options?: { minSize?: number; maxSize?: number; budget?: number }) → FindModel` — Look for a finite structure in which every sentence is true, trying domain sizes from minSize to maxSize. { status: "found", model, size } the model is… · src/predicate.js:780 · models
+- `countermodel(premises: FOFormulaList, conclusion: FOFormulaLike, options?: { minSize?: number; maxSize?: number; budget?: number }) → Countermodel` — Does the conclusion follow from the premises? · src/predicate.js:802 · satisfiability
+- `foRules: { readonly intuitionistic: RuleSet; readonly classical: RuleSet; readonly derived: RuleSet }` — Rule sets for first-order natural deduction: foRules.intuitionistic, foRules.classical (default), foRules.derived (with CQ) · src/fol-proof.js:232 · first-order-proofs
+- `parseFOProof(text: string, options?: { rules?: RuleSet }) → Proof` — Read a first-order Fitch proof from text (the same layout as parseProof). · src/fol-proof.js:239 · first-order-proofs
+- `checkFOProof(proof: Proof | string | readonly ProofLineInput[], options?: { rules?: RuleSet; premises?: FOFormulaList; conclusion?: FOFormulaLike }) → ProofCheck` — Check a first-order proof: the same report as checkProof, with the quantifier and identity rules and their conditions on names. · src/fol-proof.js:244 · first-order-proofs
+- `foTableau(premises: FOFormulaList, conclusion?: FOFormulaLike, options?: { budget?: number }) → FOTableauResult` — Test an argument by a truth tree: foTableau(premises, conclusion, { budget }) Start with the premises and the negated conclusion. · src/fol-tableau.js:64 · first-order-proofs
+- `showTableau(tree: FOTreeNode) → string` — The tree as indented text, with × for a closed branch and ○ for an open one. · src/fol-tableau.js:221 · first-order-proofs
+- `foEntails(premises: FOFormulaList, conclusion: FOFormulaLike, options?: { maxSize?: number; budget?: number }) → FOTableauResult | Countermodel` — Does the conclusion follow from the premises? · src/fol-tableau.js:244 · first-order-proofs
+- `Circuit class: inputs, outputs, gates, order, evaluate, truthTable, formula, size, depth, counts` — A circuit: circuit({ inputs: ["a", "b", "cin"], gates: { s1: ["xor", "a", "b"], sum: ["xor", "s1", "cin"], … }, outputs: ["sum", "cout"] }) Gate kinds: and,… · src/circuits.js:32 · circuits
+- `circuit(spec: CircuitSpec | Circuit) → Circuit` · src/circuits.js:124 · circuits
+- `circuitsEquivalent(a: Circuit | FormulaLike | readonly FormulaLike[], b: Circuit | FormulaLike | readonly FormulaLike[]) → ` — Do two circuits (or a circuit and formulas) compute the same outputs? · src/circuits.js:132 · circuits
+- `circuitFrom(f: FormulaLike, options?: { gates?: "standard" | "nand" | "nor"; output?: string }) → Circuit` — A circuit for a formula. gates: "standard" (and, or, not, xor as written), "nand" or "nor" (only that gate: every connective rewritten in it). · src/circuits.js:155 · circuits
+- `adders: { half(): Circuit; full(): Circuit; ripple(bits: number): Circuit }` — Adders, built from gates and checked against arithmetic in the tests. · src/circuits.js:224 · circuits
+- `karnaugh(f: FormulaLike | { minterms: readonly number[]; atoms: readonly string[]; dontCares?: readonly number[] }, options?: { atoms?: readonly string[]; dontCares?: readonly number[] }) → KarnaughMap` — A Karnaugh map of a formula (or { minterms, atoms, dontCares }) over two to four atoms. · src/circuits.js:272 · circuits
+- `categorical(input: string | Categorical) → Categorical` — A categorical statement: { form: "A" | "E" | "I" | "O", subject, predicate }. · src/syllogism.js:19 · syllogisms
+- `categoricalText(c: Categorical) → string` · src/syllogism.js:32 · syllogisms
+- `syllogism(major: string | Categorical, minor: string | Categorical, conclusion: string | Categorical, options?: { existentialImport?: boolean }) → SyllogismResult (+1 overload)` — Decide a syllogism. · src/syllogism.js:76 · syllogisms
+- `validSyllogisms(options?: { existentialImport?: boolean }) → { form: string; name: string | null }[]` — Every valid mood and figure (24 with existential import, 15 without), with its traditional name. · src/syllogism.js:153 · syllogisms
+- `ModalFormula class: kind, key, parts, modalDepth, atoms, equals, toString` — A modal formula: kinds atom, top, bot, not, and, or, imp, iff, box, dia. · src/modal.js:18 · modal-logic
+- `parseModal(text: string) → ModalFormula` — Read a modal formula: □ (also [], box, nec) and ◇ (also <>, dia, poss) bind as tightly as ¬; the other connectives as in propositional formulas. · src/modal.js:88 · modal-logic
+- `modal(input: ModalFormula | string) → ModalFormula` · src/modal.js:156 · modal-logic
+- `Kripke class: worlds, sees, describe, truthAt, trueAt, holds, properties` — A Kripke model: { worlds: ["w1", "w2"], access: [["w1", "w2"], …] (or { w1: ["w2"] }), valuation: { p: ["w1"] } } — p is true exactly at the worlds listed. · src/modal.js:165 · modal-logic
+- `kripke(spec: KripkeSpec | Kripke) → Kripke` · src/modal.js:244 · sequents
+- `SYSTEMS: Readonly<Record<ModalSystem, readonly string[]>>` — The frame conditions of each system. · src/modal.js:247 · modal-logic
+- `validOnFrame(f: ModalFormula | string, frame: KripkeSpec | Kripke) → ` — Is the formula valid on the frame (true at every world under every valuation)? · src/modal.js:260 · modal-logic
+- `modalValid(f: ModalFormula | string, options?: { system?: ModalSystem; budget?: number }) → ModalValid` — Is the formula valid in the system (K, D, T, B, S4 or S5)? · src/modal.js:314 · modal-logic
+- `showModalTree(tree: object) → string` — The tree as indented text. · src/modal.js:514 · modal-logic
+- `Automaton class: states, alphabet, start, accept, isDFA, isComplete, run, accepts, words, toString` — An automaton: automaton({ states: ["q0", "q1"], alphabet: "ab", start: "q0", accept: ["q1"], delta: { q0: { a: "q1", b: "q0" }, q1: { a: ["q0", "q1"], ε:… · src/automata.js:20 · automata
+- `automaton(spec: AutomatonLike) → Automaton` · src/automata.js:100 · automata
+- `toDFA(a: AutomatonLike) → Automaton` — The subset construction: a DFA with the same language. · src/automata.js:103 · automata
+- `complete(a: AutomatonLike, alphabet?: string | readonly string[]) → Automaton` — Every transition defined, with a dead state ∅ where there was none. · src/automata.js:127 · natural-deduction
+- `minimizeAutomaton(a: AutomatonLike) → Automaton` — The minimal DFA (Moore's partition refinement after removing unreachable states). · src/automata.js:151 · automata
+- `equivalentAutomata(a: AutomatonLike | string, b: AutomatonLike | string) → ` — Do two automata (or regular expressions) accept the same words? { equivalent: true } or { equivalent: false, word, acceptedBy } with a shortest word in one… · src/automata.js:200 · automata
+- `complement(a: AutomatonLike, alphabet?: string | readonly string[]) → Automaton` — The automaton for the words the given one rejects (over its alphabet, or a wider one). · src/automata.js:227 · automata
+- `product(a: AutomatonLike, b: AutomatonLike, op?: "and" | "or" | "minus") → Automaton` — The product automaton: op "and" (intersection), "or" (union) or "minus". · src/automata.js:232 · simplification
+- `parseRegex(text: string) → object` — Read a regular expression: letters and digits are symbols, | is union, writing side by side is concatenation, + ? are repetition, ( ) group, ε (or eps) is… · src/automata.js:269 · automata
+- `regexToNFA(regex: string | object) → Automaton` — Thompson's construction: an NFA with ε moves for a regular expression. · src/automata.js:324 · automata
+- `toRegex(a: AutomatonLike) → string` — A regular expression for an automaton's language, by eliminating states one at a time. · src/automata.js:368 · automata
+- `Grammar class: start, rules, terminals, nonterminals, words, toCNF, parse, accepts, toString` — A grammar from text, one rule per line ("S -> a S b | ε"), or { start, rules: { S: ["aSb", "ε"] } }. · src/machines.js:19 · machines
+- `grammar(input: string | Grammar | { start?: string; rules: Record<string, readonly string[]> }) → Grammar` · src/machines.js:259 · machines
+- `showTree(tree: ParseTree) → string` — Show a parse tree as a bracketed string: S(a S(…) b). · src/machines.js:261 · machines
+- `PDA class: run, accepts` — A pushdown automaton, accepting by final state: pda({ start: "q0", accept: ["q2"], stackStart: "Z", moves: [["q0", "a", "Z", "q0", "AZ"], …] }) A move is… · src/machines.js:274 · machines
+- `pda(spec: ConstructorParameters<typeof PDA>[0]) → PDA` · src/machines.js:312 · machines
+- `TuringMachine class: run` — A one-tape Turing machine: turing({ start: "q0", accept: "qa", reject: "qr", blank: "_", delta: { "q0,0": ["q1", "1", "R"], … } }) A transition reads… · src/machines.js:323 · machines
+- `turing(spec: TuringSpec) → TuringMachine` · src/machines.js:375 · machines
+- `recursive: { readonly zero: RecursiveFunction; readonly succ: RecursiveFunction; proj(i: number, n: number): RecursiveFunction; compose(f: RecursiveFunction, gs: readonly RecursiveFunction[]): RecursiveFunction; primrec(g: …` · src/machines.js:440 · machines
+- `binaryIncrement() → TuringMachine` — ---- Gödel-free helper: a machine that adds one in binary, used in the docs and tests --------------- · src/machines.js:448 · machines
+- `plan: readonly PlannedPhase[]` · src/plan.js:5 · reference
+
+## Example
+
+```js
+import { entails, proveSequent, tableauProof, prove } from "@ratmath/logic";
+// Is this argument valid? Ask four ways, and look at the evidence each gives.
+const premises = "p -> q, q -> r";
+const conclusion = "p -> r";
+
+console.log("by the solver:  ", entails(premises, conclusion).status);
+console.log("by a truth tree:", tableauProof(premises, conclusion).status);
+console.log("by sequents:    ", proveSequent(premises + " |- " + conclusion).status);
+const found = prove(premises, conclusion);
+console.log("by natural deduction:\n" + found.proof);
+
+// Change the conclusion to "r -> p" and every method returns the same countermodel instead.
+entails(premises, "r -> p").countermodel
+```
+
+## More
+
+- tests/: worked examples for every function
+- https://ratmath.com/core/ (numbers), https://ratmath.com/shelf/ (all the libraries)
