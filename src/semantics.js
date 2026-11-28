@@ -23,6 +23,13 @@ function atomColumn(j, n) {
 }
 
 /**
+ * 2^n one bits, built without the (2^n + 1)-bit number 2^(2^n): some engines
+ * cap a BigInt at 2^20 bits, and that intermediate would cross the cap at 20
+ * atoms when the table itself still fits.
+ */
+const allRows = (n) => (n === 0 ? 1n : (((1n << ((1n << BigInt(n)) - 1n)) - 1n) << 1n) | 1n);
+
+/**
  * The truth table of a formula as a BigInt: bit r is the value on row r.
  * `atoms` fixes the columns (default: the formula's own atoms, in order).
  */
@@ -31,8 +38,17 @@ export function tableBits(f, atoms) {
   const names = atomsOf([g], atoms);
   const n = names.length;
   if (n > TABLE_LIMIT) refuse("too-large", `a table over ${n} atoms has 2^${n} rows; use satisfiable() or valid() instead`);
-  const all = (1n << (1n << BigInt(n))) - 1n;
-  const cols = new Map(names.map((name, j) => [name, atomColumn(j, n)]));
+  const tooBig = (e) => {
+    if (e instanceof RangeError) refuse("too-large", `a table over ${n} atoms (2^${n} rows) is larger than this JavaScript engine can hold as one number; use satisfiable() or valid() instead`);
+    throw e;
+  };
+  let all, cols;
+  try {
+    all = allRows(n);
+    cols = new Map(names.map((name, j) => [name, atomColumn(j, n)]));
+  } catch (e) {
+    tooBig(e);
+  }
   const memo = new Map();
   const go = (h) => {
     const had = memo.get(h.key);
@@ -55,7 +71,11 @@ export function tableBits(f, atoms) {
     memo.set(h.key, v);
     return v;
   };
-  return go(g);
+  try {
+    return go(g);
+  } catch (e) {
+    tooBig(e);
+  }
 }
 
 const rowAssignment = (names, r) => Object.fromEntries(names.map((name, j) => [name, Boolean((r >> (names.length - 1 - j)) & 1)]));
@@ -129,7 +149,7 @@ export function minterms(f, atoms) {
 export function maxterms(f, atoms) {
   const g = formula(f);
   const names = atomsOf([g], atoms);
-  return setBits(((1n << (1n << BigInt(names.length))) - 1n) ^ tableBits(g, names));
+  return setBits(allRows(names.length) ^ tableBits(g, names));
 }
 /** How many of the 2^n valuations make the formula true, as a BigInt. */
 export function countModels(f, atoms) {

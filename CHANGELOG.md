@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Requires Core 0.12: the `@ratmath/core` peer range is now `>=0.12.0` (Core 0.12 returns Integers from `floor`/`ceil`/`trunc`/`round` and rounds half up by default).
+- Fix: identity elimination (=E) in `checkFOProof` no longer replaces under a
+  quantifier that binds a variable of either side, so `x = a, ∀x P(a)` no
+  longer "proves" `∀x P(x)` (variable capture; found by an external QA review).
+- Truth tables over 20 atoms no longer build the (2^n + 1)-bit intermediate
+  2^(2^n), which crossed a 2^20-bit BigInt cap in some Bun releases; a table
+  the engine cannot hold is refused as `too-large` instead of a RangeError.
 - `@ratmath/core` is now a peer dependency (`>=0.10.0 <0.12.0`): the package
   uses the program's own copy of Core instead of bringing its own, so Core 0.11
   works and there is never a second copy whose `Rational` is not the same class.
