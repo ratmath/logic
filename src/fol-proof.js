@@ -118,26 +118,36 @@ const varsOf = (t, out = new Set()) => {
   t.args.forEach((a) => varsOf(a, out));
   return out;
 };
-/** Do a and b differ only where one has s and the other has t (in either direction)? */
+/**
+ * Do a and b differ only where one has s and the other has t (in either
+ * direction)? A replacement counts only where it is free: no variable of s
+ * or t may be bound by a quantifier above that place, or the replacement
+ * would capture it (from x = a and ∀x P(a), ∀x P(x) does not follow).
+ */
 function sameUpTo(a, b, s, t) {
-  const tm = (x, y) => {
+  const sv = varsOf(s);
+  const tv = varsOf(t);
+  const tm = (x, y, bound) => {
     if (x.key === y.key && x.kind === y.kind) return true;
-    if ((x.key === s.key && y.key === t.key) || (x.key === t.key && y.key === s.key)) return true;
+    if ((x.key === s.key && y.key === t.key) || (x.key === t.key && y.key === s.key)) {
+      for (const v of [...sv, ...tv]) if (bound.has(v)) return false;
+      return true;
+    }
     if (x.kind !== y.kind || x.name !== y.name || x.args.length !== y.args.length) return false;
-    return x.args.every((z, i) => tm(z, y.args[i]));
+    return x.args.every((z, i) => tm(z, y.args[i], bound));
   };
-  const go = (f, g) => {
+  const go = (f, g, bound) => {
     if (f.kind !== g.kind) return false;
     switch (f.kind) {
-      case "pred": return f.name === g.name && f.args.length === g.args.length && f.args.every((z, i) => tm(z, g.args[i]));
-      case "eq": return tm(f.left, g.left) && tm(f.right, g.right);
+      case "pred": return f.name === g.name && f.args.length === g.args.length && f.args.every((z, i) => tm(z, g.args[i], bound));
+      case "eq": return tm(f.left, g.left, bound) && tm(f.right, g.right, bound);
       case "top": case "bot": return true;
-      case "not": return go(f.arg, g.arg);
-      case "all": case "ex": return f.variable === g.variable && go(f.body, g.body);
-      default: return go(f.left, g.left) && go(f.right, g.right);
+      case "not": return go(f.arg, g.arg, bound);
+      case "all": case "ex": return f.variable === g.variable && go(f.body, g.body, new Set([...bound, f.variable]));
+      default: return go(f.left, g.left, bound) && go(f.right, g.right, bound);
     }
   };
-  return go(a, b);
+  return go(a, b, new Set());
 }
 
 // ---- the quantifier and identity rules ----------------------------------------------------------
@@ -208,7 +218,7 @@ const QUANT = [
       if (sameUpTo(other.formula, target, e.formula.left, e.formula.right)) return null;
     }
     if (lc[0].formula.kind !== "eq" && lc[1].formula.kind !== "eq") return `=E needs an identity a = b among the lines it cites`;
-    return `${q(target)} is not the other line with some occurrences of one side of the identity written as the other`;
+    return `${q(target)} is not the other line with some free occurrences of one side of the identity written as the other (a replacement under a quantifier that binds one of its variables would capture it)`;
   }),
 ];
 const CQ = qrule("CQ", ["quantifier negation", "QN", "conversion of quantifiers"], "¬∀x A and ∃x ¬A, and ¬∃x A and ∀x ¬A, each from the other", (target, lc, sc) => {

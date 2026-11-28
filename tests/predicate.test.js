@@ -130,6 +130,20 @@ describe("predicate logic: natural deduction", () => {
 `);
     ok("1. ¬∀x P(x)   premise\n2. ∃x ¬P(x)   CQ 1", { rules: L.foRules.derived });
   });
+  test("=E does not let a replacement be captured by a quantifier", () => {
+    // false on the domain {0, 1} with a = x = 0 and P true only at 0
+    const status = (text) => L.checkFOProof(text).status;
+    expect(status("1. x = a   premise\n2. ∀x P(a)   premise\n3. ∀x P(x)   =E 1, 2")).not.toBe("proof");
+    expect(status("1. a = x   premise\n2. ∃x ¬P(a)   premise\n3. ∃x ¬P(x)   =E 1, 2")).not.toBe("proof");
+    expect(status("1. x = a   premise\n2. ∀y ∀x R(a, y)   premise\n3. ∀y ∀x R(x, y)   =E 1, 2")).not.toBe("proof");
+    expect(status("1. f(x) = a   premise\n2. ∀x P(a)   premise\n3. ∀x P(f(x))   =E 1, 2")).not.toBe("proof");
+    // a bound occurrence of x is not an occurrence of the free x in x = a
+    expect(status("1. x = a   premise\n2. ∀x P(x)   premise\n3. ∀x P(a)   =E 1, 2")).not.toBe("proof");
+    // replacements under a binder of another variable are fine
+    expect(status("1. a = b   premise\n2. ∀x R(x, a)   premise\n3. ∀x R(x, b)   =E 1, 2")).toBe("proof");
+    expect(status("1. x = a   premise\n2. ∀y P(a, y)   premise\n3. ∀y P(x, y)   =E 1, 2")).toBe("proof");
+    expect(status("1. x = a   premise\n2. P(a) ∧ ∀x Q(x)   premise\n3. P(x) ∧ ∀x Q(x)   =E 1, 2")).toBe("proof");
+  });
   test("the side conditions are enforced", () => {
     expect(L.checkFOProof("1. P(a)   premise\n2. ∀x P(x)   ∀I 1").status).not.toBe("proof");
     expect(L.checkFOProof(`

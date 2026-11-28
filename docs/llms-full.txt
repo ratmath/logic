@@ -1,6 +1,6 @@
 # @ratmath/logic 0.2.0: full documentation
 
-> Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability. From https://ratmath.com/logic/, commit dc58bfa. Each page ends with a runnable example; in it, PRINT(...) prints.
+> Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability. From https://ratmath.com/logic/, commit 2753c30. Each page ends with a runnable example; in it, PRINT(...) prints.
 
 
 ---
@@ -1803,9 +1803,9 @@ The proof systems for propositional logic extend to quantifiers with a few rules
 
 | =I | | t=t | |
 
-| =E | a=b and A | A with some a's written b (or b's written a) | |
+| =E | a=b and A | A with some a's written b (or b's written a) | only free occurrences: no variable of a or b is bound where it is replaced |
 
-The conditions are what make the rules sound. ∀I generalises from c only if nothing was assumed about c, so c was an arbitrary choice. ∃E names the witness c, so c must not escape into the conclusion. The derived rule set adds CQ, the quantifier negation laws such as ¬∀xA⊢∃x¬A.
+The conditions are what make the rules sound. ∀I generalises from c only if nothing was assumed about c, so c was an arbitrary choice. ∃E names the witness c, so c must not escape into the conclusion. =E replaces only where the replacement stays free: from x=a and ∀xP(a) it does not give ∀xP(x), which is false on the domain {0,1} with a=x=0 and P true only at 0, though both premises are true there. The derived rule set adds CQ, the quantifier negation laws such as ¬∀xA⊢∃x¬A.
 
 ```js
 import { checkFOProof } from "@ratmath/logic";
@@ -1827,6 +1827,11 @@ checkFOProof(`1. ∃x P(x)      premise
 3. | P(c)       R 2
 4. P(c)         ∃E 1, 2-3`).errors[0].message;
 // 'line 4: c occurs in "P(c)", so the conclusion would say something about the witness'
+
+checkFOProof(`1. x = a       premise
+2. ∀x P(a)     premise
+3. ∀x P(x)     =E 1, 2`).status;
+// "errors": the inserted x would be captured by ∀x
 ```
 
 ### Truth trees
