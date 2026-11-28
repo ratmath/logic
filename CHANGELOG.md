@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Requires Core 0.12: the `@ratmath/core` peer range is now `>=0.12.0` (Core 0.12 returns Integers from `floor`/`ceil`/`trunc`/`round` and rounds half up by default).
 - Fix: identity elimination (=E) in `checkFOProof` no longer replaces under a
   quantifier that binds a variable of either side, so `x = a, ∀x P(a)` no
   longer "proves" `∀x P(x)` (variable capture; found by an external QA review).
