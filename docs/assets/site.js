@@ -1,8 +1,8 @@
 // Shared page furniture for the logic docs: the contents column, the theme
 // switch and the code boxes. Add each topic page to PAGES as it is written.
 
-import * as A from "./logic.js?v=b7ea6b3616";
-import { mountRunboxes } from "./runbox.js?v=b7ea6b3616";
+import * as A from "./logic.js?v=5907d28f09";
+import { mountRunboxes } from "./runbox.js?v=5907d28f09";
 
 export { A };
 

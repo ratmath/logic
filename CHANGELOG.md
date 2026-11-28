@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Docs: the browser bundle is rebuilt against Core 0.12 (the checked-in one
+  still rounded 65 to 60 at the tens and returned a bare BigInt from
+  `floor()`), is built without identifier minification (Bun renames classes
+  even with `keepNames`, which broke `new Rational(q.floor())` and
+  `q.add(q.floor())` in the browser), and the docs build now runs every code
+  box against the emitted bundle after a mixed Integer/Rational check. Found
+  by the external QA review.
+
 - Requires Core 0.12: the `@ratmath/core` peer range is now `>=0.12.0` (Core 0.12 returns Integers from `floor`/`ceil`/`trunc`/`round` and rounds half up by default).
 - Fix: identity elimination (=E) in `checkFOProof` no longer replaces under a
   quantifier that binds a variable of either side, so `x = a, ∀x P(a)` no
