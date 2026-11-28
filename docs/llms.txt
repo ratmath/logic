@@ -2,7 +2,7 @@
 
 > Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability. Part of the RatMath Shelf; numbers come from @ratmath/core (a peer dependency). ESM: `import * as logic from "@ratmath/logic"`.
 
-Built from 0.2.0, commit 2753c30 plus uncommitted changes. `file:line` is relative to the package root (also node_modules/@ratmath/logic/); on GitHub: https://github.com/ratmath/logic/blob/2753c30/<file>#L<line>. Docs pages are under https://ratmath.com/logic/. Full types: index.d.ts.
+Built from 0.2.0, commit 29a99e9. `file:line` is relative to the package root (also node_modules/@ratmath/logic/); on GitHub: https://github.com/ratmath/logic/blob/29a99e9/<file>#L<line>. Docs pages are under https://ratmath.com/logic/. Full types: index.d.ts.
 
 Types: `type Kind = "atom" | "top" | "bot" | "not" | "and" | "or" | "imp" | "iff" | "xor"`; `type Style = "unicode" | "ascii" | "words" | "tex"`; `type FormulaLike = Formula | string`; `type FormulaList = readonly FormulaLike[] | string | Formula`; `type Valuation = Record<string, boolean | 0 | 1> | Map<string, boolean | 0 | 1>`; `type Model = Record<string, boolean>`; `type ClauseLike = string | readonly string[]`; `type Citation = number | [number, number]`; `type FOKind = "pred" | "eq" | "top" | "bot" | "not" | "and" | "or" | "imp" | "iff" | "xor" | "all" | "ex"`; `type FOFormulaLike = FOFormula | string`; `type FOFormulaList = readonly FOFormulaLike[] | string | FOFormula`; `type Element = string | number`; `type GateKind = "and" | "or" | "xor" | "nand" | "nor" | "xnor" | "not" | "buf"`; `type CategoricalForm = "A" | "E" | "I" | "O"`; `type ModalSystem = "K" | "D" | "T" | "B" | "S4" | "S5"`; `type AutomatonLike = Automaton | AutomatonSpec`
 

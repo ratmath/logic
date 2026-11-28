@@ -1,6 +1,6 @@
 # @ratmath/logic 0.2.0: full documentation
 
-> Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability. From https://ratmath.com/logic/, commit 2753c30. Each page ends with a runnable example; in it, PRINT(...) prints.
+> Formal logic for RatMath: propositional and predicate logic, proof checking, model search, modal logic and computability. From https://ratmath.com/logic/, commit 29a99e9. Each page ends with a runnable example; in it, PRINT(...) prints.
 
 
 ---
